@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Review Report</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .header-info {
+            background-color: #ecf0f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .file-section {
+            margin-bottom: 30px;
+            border: 1px solid #e0e6ed;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .file-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-path {
+            color: #495057;
+        }
+        
+        .score-badge {
+            background-color: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 14px;
+        }
+        
+        .diff-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .comment {
+            padding: 15px;
+            border-left: 4px solid transparent;
+            margin-bottom: 10px;
+            background-color: #fff;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .comment-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .severity-critical { border-color: #dc3545; background-color: #fff5f5; }
+        .severity-error { border-color: #dc3545; }
+        .severity-warning { border-color: #ffc107; }
+        .severity-info { border-color: #17a2b8; }
+        
+        .critical { color: #dc3545; font-weight: bold; }
+        .error { color: #dc3545; }
+        .warning { color: #f57c00; }
+        .info { color: #007bff; }
+        
+        .severity-critical::before { content: "CRITICAL: "; }
+        .severity-error::before { content: "ERROR: "; }
+        .severity-warning::before { content: "WARNING: "; }
+        .severity-info::before { content: "INFO: "; }
+        
+        .suggestion {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+            font-style: italic;
+            color: #6c757d;
+        }
+        
+        .suggestion-label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .stats-summary {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        .file-content {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            h1 { font-size: 24px; }
+            .file-header { flex-direction: column; align-items: flex-start; }
+            .stats-summary { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code Review Report</h1>
+        
+        <!-- Summary Statistics -->
+        <div id="summary-section">
+            <h2>Summary</h2>
+            <div class="stats-summary">
+                <div class="stat-item">
+                    <div class="stat-value" id="total-files">0</div>
+                    <div class="stat-label">Files Reviewed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="critical-count">0</div>
+                    <div class="stat-label">Critical Issues</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="error-count">0</div>
+                    <div class="stat-label">Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="warning-count">0</div>
+                    <div class="stat-label">Warnings</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="info-count">0</div>
+                    <div class="stat-label">Info Items</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Header Information -->
+        <div class="header-info">
+            <strong>Generated:</strong> <span id="generated-date"></span><br/>
+            <strong>Repository:</strong> <span id="repository-path"></span><br/>
+            <strong>Review Rules:</strong> Using default rules<br/>
+            <strong>Model:</strong> <span id="model-name"></span>
+        </div>
+        
+        <!-- File Reviews -->
+        <div id="file-reviews">
+            <!-- File sections will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // Configuration for the review data
+        // <INSERT CONFIG HERE>
+        
+        // Helper function to format date
+        function formatDate(date) {
+            return new Date(date).toLocaleString();
+        }
+        
+        // Render a single file review section
+        function renderFileReview(fileData) {
+            const severityCounts = { critical: 0, error: 0, warning: 0, info: 0 };
+            
+            let commentsHtml = '';
+            for (const comment of fileData.Comments) {
+                if (!severityCounts[comment.Severity.toLowerCase()])
+                    severityCounts[comment.Severity.toLowerCase()] = 0;
+                    
+                severityCounts[comment.Severity.toLowerCase()]++;
+                
+                const severityClass = `severity-${comment.Severity.toLowerCase()}`;
+                commentsHtml += `
+                    <div class="comment ${severityClass}">
+                        <div class="comment-info">
+                            <span>Line ${comment.Line}</span>
+                            <span class="${comment.Severity.toLowerCase()}">${comment.Severity}</span>
+                        </div>
+                        <div>${comment.Message}</div>
+                        ${comment.Suggestion ? `
+                            <div class="suggestion">
+                                <span class="suggestion-label">SUGGESTED FIX:</span>
+                                ${comment.Suggestion}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="file-section">
+                    <div class="file-header">
+                        <div class="file-path">${fileData.FilePath}</div>
+                        <div class="score-badge">Score: ${fileData.OverallScore}/100</div>
+                    </div>
+                    
+                    ${config.showDiff ? `
+                    <div class="diff-section">
+${fileData.DiffContent}
+                    </div>
+                    ` : ''}
+                    
+                    <div style="padding: 15px;">
+                        <h4>Comments (${fileData.Comments.length})</h4>
+                        ${commentsHtml || '<p style="color: #28a745; font-style: italic;">No review comments found.</p>'}
+                    </div>
+                    
+                    ${config.showFullContent ? `
+                    <div class="file-content">
+${fileData.FullContent}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        // Update statistics
+        function updateStats() {
+            let totalFiles = 0, criticalCount = 0, errorCount = 0, warningCount = 0, infoCount = 0;
+            
+            for (const file of config.files) {
+                totalFiles++;
+                
+                for (const comment of file.Comments) {
+                    switch(comment.Severity.toLowerCase()) {
+                        case 'critical': criticalCount++; break;
+                        case 'error': errorCount++; break;
+                        case 'warning': warningCount++; break;
+                        case 'info': infoCount++; break;
+                    }
+                }
+            }
+            
+            document.getElementById('total-files').textContent = totalFiles;
+            document.getElementById('critical-count').textContent = criticalCount;
+            document.getElementById('error-count').textContent = errorCount;
+            document.getElementById('warning-count').textContent = warningCount;
+            document.getElementById('info-count').textContent = infoCount;
+        }
+        
+        // Initialize the page
+        function initialize() {
+            document.getElementById('generated-date').textContent = formatDate(new Date());
+            document.getElementById('repository-path').textContent = config.repositoryPath || 'Unknown';
+            document.getElementById('model-name').textContent = config.modelName || 'gemma-3-4b-it';
+            
+            const reviewsContainer = document.getElementById('file-reviews');
+            
+            if (config.files.length === 0) {
+                reviewsContainer.innerHTML = '<p style="text-align: center; color: #6c757d;">No files to review.</p>';
+            } else {
+                for (const file of config.files) {
+                    reviewsContainer.innerHTML += renderFileReview(file);
+                }
+                
+                updateStats();
+            }
+        }
+        
+        // Call initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

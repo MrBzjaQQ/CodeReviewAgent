@@ -1,0 +1,67 @@
+=== CODE REVIEW RULES ===
+
+1. Code Quality & Best Practices
+   - Follow language-specific conventions and patterns
+   - Maintain consistent code style throughout the project
+   - Use meaningful variable, function, and class names
+   - Keep functions small and focused on a single responsibility
+
+2. Security Considerations
+   - Validate all user inputs properly
+   - Avoid hardcoding sensitive information in source code
+   - Implement proper authentication and authorization where needed
+   - Be cautious with dynamic code execution or eval() patterns
+
+3. Performance & Efficiency
+   - Optimize algorithms for time and space complexity where appropriate
+   - Be mindful of memory usage, especially in loops and recursion
+   - Use caching strategically to avoid redundant computations
+   - Profile performance bottlenecks before optimizing
+
+4. Error Handling
+   - Implement proper error handling throughout the codebase
+   - Provide clear and informative error messages
+   - Log errors appropriately for debugging purposes
+   - Handle edge cases gracefully
+
+5. Testing & Maintainability
+   - Ensure code is testable with unit/integration tests where possible
+   - Write self-documenting code through clear naming and structure
+   - Include appropriate comments for complex logic
+   - Keep dependencies minimal and well-documented
+
+6. Code Review Guidelines
+   - Focus on understanding the intent and purpose of changes
+   - Check for potential bugs, race conditions, or security issues
+   - Verify that changes follow project conventions and standards
+   - Assess whether new code integrates well with existing patterns
+   - Consider performance implications of proposed changes
+   - Ensure proper error handling and edge case coverage
+
+7. Specific Language Recommendations
+   
+   C#:
+   - Use async/await appropriately for I/O operations
+   - Implement IDisposable properly when needed
+   - Follow SOLID principles when designing classes
+   - Use LINQ efficiently but avoid over-complication
+   
+   JavaScript/TypeScript:
+   - Use const by default, let only when reassignment is needed
+   - Prefer arrow functions for callbacks and methods
+   - Avoid global namespace pollution with IIFE or modules
+   - Consider async/await instead of callback chains
+   
+   Python:
+   - Follow PEP 8 style guidelines
+   - Use type hints where possible
+   - Leverage list comprehensions judiciously
+   - Prefer context managers (with statement) for resource management
+
+   Java:
+   - Follow naming conventions (camelCase, PascalCase, etc.)
+   - Implement equals(), hashCode() and toString() when appropriate
+   - Use generics to ensure type safety
+   - Consider immutability where possible
+
+=== END RULES ===

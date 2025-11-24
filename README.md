@@ -46,6 +46,7 @@ dotnet run --directory <path> [OPTIONS]
 - `--max-size BYTES` - Maximum file size to process (default: 1048576 bytes)
 - `--no-diff` - Don't include git diff in output
 - `-h, --help` - Show help message
+- `-d, --directory` - Set directory to review
 
 ## Examples
 
