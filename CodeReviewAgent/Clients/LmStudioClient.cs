@@ -17,7 +17,8 @@ public class LmStudioClient : IChatClient
     {
         _httpClient = httpClient ?? new HttpClient()
         {
-            BaseAddress = new Uri(baseUrl)
+            BaseAddress = new Uri(baseUrl),
+            Timeout = TimeSpan.FromHours(2)
         };
         
         _endpoint = "v1/chat/completions";

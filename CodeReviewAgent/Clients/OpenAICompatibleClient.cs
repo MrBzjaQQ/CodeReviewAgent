@@ -17,7 +17,7 @@ public class OpenAICompatibleClient : IChatClient
         string model = "gemma-3-4b-it",
         HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient { BaseAddress = new Uri(baseUrl) };
+        _httpClient = httpClient ?? new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = TimeSpan.FromHours(2) };
         _endpoint = "v1/chat/completions";
         _model = model;
     }
