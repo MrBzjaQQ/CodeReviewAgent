@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
+using CodeReviewAgent.Utils;
 
-namespace ReviewAgent.Services;
+namespace CodeReviewAgent;
 
 public class GitDiffResult
 {
@@ -26,7 +22,7 @@ public class GitDiffService
         _repositoryPath = repositoryPath;
     }
 
-    public async Task<List<GitDiffResult>> GetChangedFilesAsync(string? startCommit, string? endCommit, ReviewAgent.Utils.IgnorePatternMatcher ignorePatterns)
+    public async Task<List<GitDiffResult>> GetChangedFilesAsync(string? startCommit, string? endCommit, IgnorePatternMatcher ignorePatterns)
     {
         var result = new List<GitDiffResult>();
         

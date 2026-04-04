@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Review Report</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .header-info {
+            background-color: #ecf0f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .file-section {
+            margin-bottom: 30px;
+            border: 1px solid #e0e6ed;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .file-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-path {
+            color: #495057;
+        }
+        
+        .score-badge {
+            background-color: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 14px;
+        }
+        
+        .diff-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .comment {
+            padding: 15px;
+            border-left: 4px solid transparent;
+            margin-bottom: 10px;
+            background-color: #fff;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .comment-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .severity-critical { border-color: #dc3545; background-color: #fff5f5; }
+        .severity-error { border-color: #dc3545; }
+        .severity-warning { border-color: #ffc107; }
+        .severity-info { border-color: #17a2b8; }
+        
+        .critical { color: #dc3545; font-weight: bold; }
+        .error { color: #dc3545; }
+        .warning { color: #f57c00; }
+        .info { color: #007bff; }
+        
+        .severity-critical::before { content: "CRITICAL: "; }
+        .severity-error::before { content: "ERROR: "; }
+        .severity-warning::before { content: "WARNING: "; }
+        .severity-info::before { content: "INFO: "; }
+        
+        .suggestion {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+            font-style: italic;
+            color: #6c757d;
+        }
+        
+        .suggestion-label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .stats-summary {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        .file-content {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            h1 { font-size: 24px; }
+            .file-header { flex-direction: column; align-items: flex-start; }
+            .stats-summary { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code Review Report</h1>
+        
+        <!-- Summary Statistics -->
+        <div id="summary-section">
+            <h2>Summary</h2>
+            <div class="stats-summary">
+                <div class="stat-item">
+                    <div class="stat-value" id="total-files">0</div>
+                    <div class="stat-label">Files Reviewed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="critical-count">0</div>
+                    <div class="stat-label">Critical Issues</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="error-count">0</div>
+                    <div class="stat-label">Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="warning-count">0</div>
+                    <div class="stat-label">Warnings</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="info-count">0</div>
+                    <div class="stat-label">Info Items</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Header Information -->
+        <div class="header-info">
+            <strong>Generated:</strong> <span id="generated-date"></span><br/>
+            <strong>Repository:</strong> <span id="repository-path"></span><br/>
+            <strong>Review Rules:</strong> Using default rules<br/>
+            <strong>Model:</strong> <span id="model-name"></span>
+        </div>
+        
+        <!-- File Reviews -->
+        <div id="file-reviews">
+            <!-- File sections will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // Configuration for the review data
+        const config = {"repositoryPath":"D:\\Ilya\\Programming\\ReviewAgent\\CodeReviewAgent\\","modelName":"gpt-oss-120b","showDiff":true,"showFullContent":false,"files":[{"FilePath":".gitignore","Comments":[{"Line":7,"Severity":"Warning","Message":"Duplicate entry for the \u0022bin\u0022 directory. The file already contains \u0022bin/\u0022 on line 1.","Suggestion":"Remove line 7 (or consolidate both entries) to avoid redundancy."},{"Line":8,"Severity":"Warning","Message":"Duplicate entry for the \u0022obj\u0022 directory. The file already contains \u0022obj/\u0022 on line 2.","Suggestion":"Remove line 8 (or consolidate both entries) to keep the .gitignore concise."},{"Line":3,"Severity":"Info","Message":"Inconsistent use of a leading slash in the path \u0022 /packages/ \u0022. Other entries do not use a leading slash.","Suggestion":"Remove the leading slash for consistency: use \u0022packages/\u0022."},{"Line":5,"Severity":"Info","Message":"Inconsistent use of a leading slash in the path \u0022 /_ReSharper.Caches/ \u0022.","Suggestion":"Remove the leading slash to match the style of other entries: \u0022_ReSharper.Caches/\u0022."},{"Line":6,"Severity":"Info","Message":"The entry \u0022.idea\u0022 does not end with a trailing slash, which may cause it to match both the directory and any file named \u0022.idea\u0022.","Suggestion":"Append a slash to explicitly ignore the directory: \u0022.idea/\u0022."},{"Line":1,"Severity":"Info","Message":"The entry \u0022bin/\u0022 is correct, but consider adding a leading slash for clarity if you want to ignore only the top\u2011level directory.","Suggestion":"Optional: change to \u0022/bin/\u0022 for consistency with other entries that target top\u2011level folders."},{"Line":2,"Severity":"Info","Message":"The entry \u0022obj/\u0022 is correct, but similar to the previous comment, you may want to add a leading slash for consistency.","Suggestion":"Optional: change to \u0022/obj/\u0022."}],"OverallScore":72,"DiffContent":"diff --git a/.gitignore b/.gitignore\r\nnew file mode 100644\r\nindex 0000000..49ef6b9\r\n--- /dev/null\r\n\u002B\u002B\u002B b/.gitignore\r\n@@ -0,0 \u002B1,8 @@\r\n\u002Bbin/\r\n\u002Bobj/\r\n\u002B/packages/\r\n\u002BriderModule.iml\r\n\u002B/_ReSharper.Caches/\r\n\u002B.idea\r\n\u002Bbin\r\n\u002Bobj\r\n\\ No newline at end of file","FullContent":"bin/\r\nobj/\r\n/packages/\r\nriderModule.iml\r\n/_ReSharper.Caches/\r\n.idea\r\nbin\r\nobj"},{"FilePath":"CodeReviewAgent.sln","Comments":[{"Line":1,"Severity":"Info","Message":"The file starts with the UTF\u20118 BOM characters (shown as \u2229\u2557\u2510). While the BOM is allowed, it can cause issues with tools that expect a plain ASCII .sln file.","Suggestion":"Save the solution file without the BOM (e.g., using UTF\u20118 without signature) or ensure all build tools in the pipeline can handle the BOM."},{"Line":2,"Severity":"Info","Message":"The solution file follows the standard Visual Studio format and does not contain any hard\u2011coded secrets or executable code, so security and performance concerns are minimal.","Suggestion":"No action needed."},{"Line":3,"Severity":"Info","Message":"Project GUID and path are correctly defined. Ensure the project name and folder structure remain consistent with the repository naming conventions.","Suggestion":"If the project name changes in the future, remember to update the GUID references in any related scripts or CI configurations."},{"Line":6,"Severity":"Info","Message":"Configuration platforms are declared for Debug and Release with \u0022Any CPU\u0022. This is typical, but consider adding explicit x86/x64 platforms if the application has architecture\u2011specific dependencies.","Suggestion":"Add additional configuration entries (e.g., Debug|x64) only if needed."},{"Line":10,"Severity":"Info","Message":"Project configuration mappings are correctly set. No error handling or runtime logic exists in a .sln file, so there are no related concerns.","Suggestion":"No action needed."}],"OverallScore":82,"DiffContent":"diff --git a/CodeReviewAgent.sln b/CodeReviewAgent.sln\r\nnew file mode 100644\r\nindex 0000000..23b0752\r\n--- /dev/null\r\n\u002B\u002B\u002B b/CodeReviewAgent.sln\r\n@@ -0,0 \u002B1,16 @@\r\n\u002B\u2229\u2557\u2510\r\n\u002BMicrosoft Visual Studio Solution File, Format Version 12.00\r\n\u002BProject(\u0022{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\u0022) = \u0022CodeReviewAgent\u0022, \u0022CodeReviewAgent\\CodeReviewAgent.csproj\u0022, \u0022{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}\u0022\r\n\u002BEndProject\r\n\u002BGlobal\r\n\u002B\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\r\n\u002B\t\tDebug|Any CPU = Debug|Any CPU\r\n\u002B\t\tRelease|Any CPU = Release|Any CPU\r\n\u002B\tEndGlobalSection\r\n\u002B\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\r\n\u002B\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU\r\n\u002B\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Debug|Any CPU.Build.0 = Debug|Any CPU\r\n\u002B\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Release|Any CPU.ActiveCfg = Release|Any CPU\r\n\u002B\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Release|Any CPU.Build.0 = Release|Any CPU\r\n\u002B\tEndGlobalSection\r\n\u002BEndGlobal","FullContent":"\u2229\u2557\u2510\r\nMicrosoft Visual Studio Solution File, Format Version 12.00\r\nProject(\u0022{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\u0022) = \u0022CodeReviewAgent\u0022, \u0022CodeReviewAgent\\CodeReviewAgent.csproj\u0022, \u0022{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}\u0022\r\nEndProject\r\nGlobal\r\n\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\r\n\t\tDebug|Any CPU = Debug|Any CPU\r\n\t\tRelease|Any CPU = Release|Any CPU\r\n\tEndGlobalSection\r\n\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\r\n\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU\r\n\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Debug|Any CPU.Build.0 = Debug|Any CPU\r\n\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Release|Any CPU.ActiveCfg = Release|Any CPU\r\n\t\t{9F6B4220-8DD1-4702-8ADE-C25205BE77BB}.Release|Any CPU.Build.0 = Release|Any CPU\r\n\tEndGlobalSection\r\nEndGlobal"},{"FilePath":"CodeReviewAgent/Clients/LmStudioClient.cs","Comments":[{"Line":13,"Severity":"Warning","Message":"The default \u0060baseUrl\u0060 uses HTTP (\u0060http://localhost:1234\u0060). This transmits data in clear text and may be insecure in production environments.","Suggestion":"Change the default to HTTPS and allow the caller to explicitly specify the scheme, e.g., \u0060https://localhost:1234\u0060."},{"Line":15,"Severity":"Error","Message":"The constructor disposes the \u0060HttpClient\u0060 instance passed in via the optional parameter, which may be owned by the caller.","Suggestion":"Introduce an ownership flag (e.g., \u0060bool _disposeHttpClient\u0060) that is true only when the client creates its own \u0060HttpClient\u0060. Then only dispose when the flag is true."},{"Line":22,"Severity":"Error","Message":"\u0060Dispose\u0060 always disposes the internal \u0060_httpClient\u0060, even if it was supplied by the caller.","Suggestion":"Dispose the \u0060_httpClient\u0060 conditionally based on the ownership flag introduced above."},{"Line":28,"Severity":"Warning","Message":"\u0060messages\u0060 and \u0060options\u0060 are not validated for null before being used in \u0060BuildRequest\u0060.","Suggestion":"Add null checks (e.g., \u0060if (messages == null) throw new ArgumentNullException(nameof(messages));\u0060)."},{"Line":31,"Severity":"Info","Message":"Reading the entire response body as a string before parsing can increase memory usage for large responses.","Suggestion":"Consider deserializing directly from the response stream using \u0060await response.Content.ReadFromJsonAsync\u003CYourResponseType\u003E(_jsonOptions, cancellationToken);\u0060."},{"Line":32,"Severity":"Error","Message":"\u0060JsonDocument.Parse\u0060 creates a disposable \u0060JsonDocument\u0060 that is never disposed, potentially leaking unmanaged resources.","Suggestion":"Wrap the parsing in a \u0060using\u0060 statement or call \u0060Dispose\u0060 after extracting the needed values."},{"Line":33,"Severity":"Error","Message":"Direct calls to \u0060GetProperty\u0060 assume the JSON always contains the expected hierarchy. Missing properties will throw \u0060KeyNotFoundException\u0060 and crash the client.","Suggestion":"Use \u0060TryGetProperty\u0060 and provide a clear error message if required fields are missing."},{"Line":38,"Severity":"Info","Message":"Returning a \u0060ChatResponse\u0060 with a single message is fine, but consider handling the case where \u0060content\u0060 is null or empty more explicitly.","Suggestion":"Validate \u0060content\u0060 and, if null, return a response indicating an empty or error state."},{"Line":69,"Severity":"Error","Message":"\u0060JsonDocument.Parse(line)\u0060 inside the streaming loop creates a disposable object that is never disposed.","Suggestion":"Wrap the parsing in a \u0060using\u0060 statement: \u0060using var json = JsonDocument.Parse(line);\u0060."},{"Line":71,"Severity":"Error","Message":"The same issue as above: accessing JSON properties without checking their existence can cause exceptions if the server sends unexpected data.","Suggestion":"Use \u0060TryGetProperty\u0060 for each level and handle missing data gracefully, possibly logging a warning."},{"Line":84,"Severity":"Warning","Message":"Using \u0060Console.WriteLine\u0060 for logging errors is not appropriate for a library and can pollute the consumer\u0027s console output.","Suggestion":"Inject an \u0060ILogger\u003CLmStudioClient\u003E\u0060 (or use \u0060Microsoft.Extensions.Logging\u0060) and log the exception with appropriate log level."},{"Line":91,"Severity":"Info","Message":"The comment on this line contains garbled, non\u2011ASCII characters, likely a corrupted or unintended string.","Suggestion":"Remove or replace the comment with a clear English description, ensuring the source file is saved with UTF\u20118 encoding."},{"Line":92,"Severity":"Info","Message":"\u0060BuildRequest\u0060 returns a \u0060Dictionary\u003Cstring, object?\u003E\u0060 which is loosely typed.","Suggestion":"Define a dedicated request DTO class (e.g., \u0060ChatCompletionRequest\u0060) with strongly typed properties. This improves readability, compile\u2011time checking, and serialization performance."},{"Line":96,"Severity":"Info","Message":"Hard\u2011coding the default model ID (\u0060gemma-3-4b-it\u0060) may not be appropriate for all deployments.","Suggestion":"Expose the default model ID as a configurable option or parameter, or document that callers should provide it via \u0060ChatOptions\u0060."},{"Line":100,"Severity":"Info","Message":"\u0060ChatMessage.Contents\u0060 is used directly; ensure that this property matches the expected format of the remote API.","Suggestion":"If the API expects a string, rename the property to \u0060Content\u0060 for clarity, or map it explicitly."}],"OverallScore":20,"DiffContent":"diff --git a/CodeReviewAgent/Clients/LmStudioClient.cs b/CodeReviewAgent/Clients/LmStudioClient.cs\r\nnew file mode 100644\r\nindex 0000000..5607976\r\n--- /dev/null\r\n\u002B\u002B\u002B b/CodeReviewAgent/Clients/LmStudioClient.cs\r\n@@ -0,0 \u002B1,126 @@\r\n\u002Busing System;\r\n\u002Busing System.Collections.Generic;\r\n\u002Busing System.Net.Http.Json;\r\n\u002Busing System.Text;\r\n\u002Busing System.Text.Json;\r\n\u002Busing Microsoft.Extensions.AI;\r\n\u002B\r\n\u002Bnamespace ReviewAgent.Clients;\r\n\u002B\r\n\u002Bpublic class LmStudioClient : IChatClient\r\n\u002B{\r\n\u002B    private readonly HttpClient _httpClient;\r\n\u002B    private readonly string _endpoint;\r\n\u002B    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);\r\n\u002B\r\n\u002B    public LmStudioClient(string baseUrl = \u0022http://localhost:1234\u0022, HttpClient? httpClient = null)\r\n\u002B    {\r\n\u002B        _httpClient = httpClient ?? new HttpClient()\r\n\u002B        {\r\n\u002B            BaseAddress = new Uri(baseUrl)\r\n\u002B        };\r\n\u002B        \r\n\u002B        _endpoint = \u0022v1/chat/completions\u0022;\r\n\u002B    }\r\n\u002B\r\n\u002B    public void Dispose() =\u003E _httpClient.Dispose();\r\n\u002B\r\n\u002B    public async Task\u003CChatResponse\u003E GetResponseAsync(\r\n\u002B        IEnumerable\u003CChatMessage\u003E messages,\r\n\u002B        ChatOptions? options = null,\r\n\u002B        CancellationToken cancellationToken = default)\r\n\u002B    {\r\n\u002B        var request = BuildRequest(messages, options);\r\n\u002B        var response = await _httpClient.PostAsJsonAsync(_endpoint, request, _jsonOptions, cancellationToken);\r\n\u002B        response.EnsureSuccessStatusCode();\r\n\u002B\r\n\u002B        var body = await response.Content.ReadAsStringAsync(cancellationToken);\r\n\u002B        var parsed = JsonDocument.Parse(body);\r\n\u002B\r\n\u002B        var content = parsed.RootElement\r\n\u002B            .GetProperty(\u0022choices\u0022)[0]\r\n\u002B            .GetProperty(\u0022message\u0022)\r\n\u002B            .GetProperty(\u0022content\u0022)\r\n\u002B            .GetString();\r\n\u002B\r\n\u002B        return new ChatResponse([new ChatMessage(ChatRole.Assistant, content ?? string.Empty)]);\r\n\u002B    }\r\n\u002B\r\n\u002B    public async IAsyncEnumerable\u003CChatResponseUpdate\u003E GetStreamingResponseAsync(\r\n\u002B        IEnumerable\u003CChatMessage\u003E messages,\r\n\u002B        ChatOptions? options = null,\r\n\u002B        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)\r\n\u002B    {\r\n\u002B        var request = BuildRequest(messages, options);\r\n\u002B        request[\u0022stream\u0022] = true;\r\n\u002B\r\n\u002B        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _endpoint)\r\n\u002B        {\r\n\u002B            Content = new StringContent(JsonSerializer.Serialize(request, _jsonOptions), Encoding.UTF8, \u0022application/json\u0022)\r\n\u002B        };\r\n\u002B\r\n\u002B        using var response = await _httpClient.SendAsync(\r\n\u002B            httpRequest,\r\n\u002B            HttpCompletionOption.ResponseHeadersRead,\r\n\u002B            cancellationToken);\r\n\u002B\r\n\u002B        response.EnsureSuccessStatusCode();\r\n\u002B\r\n\u002B        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);\r\n\u002B        using var reader = new StreamReader(stream);\r\n\u002B\r\n\u002B        while (!reader.EndOfStream)\r\n\u002B        {\r\n\u002B            var line = await reader.ReadLineAsync();\r\n\u002B            if (string.IsNullOrWhiteSpace(line)) continue;\r\n\u002B\r\n\u002B            // LM Studio formates SSE (Server-Sent Events)\r\n\u002B            if (line.StartsWith(\u0022data: \u0022))\r\n\u002B                line = line[6..].Trim();\r\n\u002B\r\n\u002B            if (line == \u0022[DONE]\u0022) yield break;\r\n\u002B\r\n\u002B            ChatResponseUpdate? update = null;\r\n\u002B            try\r\n\u002B            {\r\n\u002B                var json = JsonDocument.Parse(line);\r\n\u002B                var delta = json.RootElement\r\n\u002B                    .GetProperty(\u0022choices\u0022)[0]\r\n\u002B                    .GetProperty(\u0022delta\u0022);\r\n\u002B\r\n\u002B                if (delta.TryGetProperty(\u0022content\u0022, out var contentProp))\r\n\u002B                {\r\n\u002B                    var chunk = contentProp.GetString();\r\n\u002B                    if (!string.IsNullOrEmpty(chunk))\r\n\u002B                    {\r\n\u002B                        update = new ChatResponseUpdate(ChatRole.Assistant, chunk);\r\n\u002B                    }\r\n\u002B                }\r\n\u002B            }\r\n\u002B            catch (Exception ex)\r\n\u002B            {\r\n\u002B                Console.WriteLine($\u0022[LmStudioClient] Stream parse error: {ex.Message}\u0022);\r\n\u002B            }\r\n\u002B\r\n\u002B            if (update != null)\r\n\u002B                yield return update;\r\n\u002B        }\r\n\u002B    }\r\n\u002B\r\n\u002B    public object? GetService(Type serviceType, object? serviceKey = null) =\u003E null;\r\n\u002B\r\n\u002B    // \u2568\u00C6\u2564\u00FC\u2568\u2510\u2568\u255B\u2568\u255D\u2568\u255B\u2568\u2502\u2568\u2591\u2564\u00E9\u2568\u2561\u2568\u2557\u2564\u00EE\u2568\u255C\u2568\u2591\u2564\u00C5 \u2564\u00E4\u2564\u00E2\u2568\u255C\u2568\u2551\u2564\u00E5\u2568\u2555\u2564\u00C5 \u2568\u2524\u2568\u2557\u2564\u00C5 \u2564\u00FC\u2568\u2592\u2568\u255B\u2564\u00C7\u2568\u2551\u2568\u2555 \u2568\u2556\u2568\u2591\u2568\u2510\u2564\u00C7\u2568\u255B\u2564\u00FC\u2568\u2591\r\n\u002B    private static Dictionary\u003Cstring, object?\u003E BuildRequest(IEnumerable\u003CChatMessage\u003E messages, ChatOptions? options)\r\n\u002B    {\r\n\u002B        return new Dictionary\u003Cstring, object?\u003E\r\n\u002B        {\r\n\u002B            [\u0022model\u0022] = options?.ModelId ?? \u0022gemma-3-4b-it\u0022,\r\n\u002B            [\u0022temperature\u0022] = options?.Temperature ?? 0.7,\r\n\u002B            [\u0022messages\u0022] = messages.Select(m =\u003E new\r\n\u002B            {\r\n\u002B                role = m.Role,\r\n\u002B                content = m.Contents\r\n\u002B            }).ToArray()\r\n\u002B        };\r\n\u002B    }\r\n\u002B}","FullContent":"using System;\r\nusing System.Collections.Generic;\r\nusing System.Net.Http.Json;\r\nusing System.Text;\r\nusing System.Text.Json;\r\nusing Microsoft.Extensions.AI;\r\nnamespace ReviewAgent.Clients;\r\npublic class LmStudioClient : IChatClient\r\n{\r\n    private readonly HttpClient _httpClient;\r\n    private readonly string _endpoint;\r\n    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);\r\n    public LmStudioClient(string baseUrl = \u0022http://localhost:1234\u0022, HttpClient? httpClient = null)\r\n    {\r\n        _httpClient = httpClient ?? new HttpClient()\r\n        {\r\n            BaseAddress = new Uri(baseUrl)\r\n        };\r\n        \r\n        _endpoint = \u0022v1/chat/completions\u0022;\r\n    }\r\n    public void Dispose() =\u003E _httpClient.Dispose();\r\n    public async Task\u003CChatResponse\u003E GetResponseAsync(\r\n        IEnumerable\u003CChatMessage\u003E messages,\r\n        ChatOptions? options = null,\r\n        CancellationToken cancellationToken = default)\r\n    {\r\n        var request = BuildRequest(messages, options);\r\n        var response = await _httpClient.PostAsJsonAsync(_endpoint, request, _jsonOptions, cancellationToken);\r\n        response.EnsureSuccessStatusCode();\r\n        var body = await response.Content.ReadAsStringAsync(cancellationToken);\r\n        var parsed = JsonDocument.Parse(body);\r\n        var content = parsed.RootElement\r\n            .GetProperty(\u0022choices\u0022)[0]\r\n            .GetProperty(\u0022message\u0022)\r\n            .GetProperty(\u0022content\u0022)\r\n            .GetString();\r\n        return new ChatResponse([new ChatMessage(ChatRole.Assistant, content ?? string.Empty)]);\r\n    }\r\n    public async IAsyncEnumerable\u003CChatResponseUpdate\u003E GetStreamingResponseAsync(\r\n        IEnumerable\u003CChatMessage\u003E messages,\r\n        ChatOptions? options = null,\r\n        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)\r\n    {\r\n        var request = BuildRequest(messages, options);\r\n        request[\u0022stream\u0022] = true;\r\n        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _endpoint)\r\n        {\r\n            Content = new StringContent(JsonSerializer.Serialize(request, _jsonOptions), Encoding.UTF8, \u0022application/json\u0022)\r\n        };\r\n        using var response = await _httpClient.SendAsync(\r\n            httpRequest,\r\n            HttpCompletionOption.ResponseHeadersRead,\r\n            cancellationToken);\r\n        response.EnsureSuccessStatusCode();\r\n        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);\r\n        using var reader = new StreamReader(stream);\r\n        while (!reader.EndOfStream)\r\n        {\r\n            var line = await reader.ReadLineAsync();\r\n            if (string.IsNullOrWhiteSpace(line)) continue;\r\n            // LM Studio formates SSE (Server-Sent Events)\r\n            if (line.StartsWith(\u0022data: \u0022))\r\n                line = line[6..].Trim();\r\n            if (line == \u0022[DONE]\u0022) yield break;\r\n            ChatResponseUpdate? update = null;\r\n            try\r\n            {\r\n                var json = JsonDocument.Parse(line);\r\n                var delta = json.RootElement\r\n                    .GetProperty(\u0022choices\u0022)[0]\r\n                    .GetProperty(\u0022delta\u0022);\r\n                if (delta.TryGetProperty(\u0022content\u0022, out var contentProp))\r\n                {\r\n                    var chunk = contentProp.GetString();\r\n                    if (!string.IsNullOrEmpty(chunk))\r\n                    {\r\n                        update = new ChatResponseUpdate(ChatRole.Assistant, chunk);\r\n                    }\r\n                }\r\n            }\r\n            catch (Exception ex)\r\n            {\r\n                Console.WriteLine($\u0022[LmStudioClient] Stream parse error: {ex.Message}\u0022);\r\n            }\r\n            if (update != null)\r\n                yield return update;\r\n        }\r\n    }\r\n    public object? GetService(Type serviceType, object? serviceKey = null) =\u003E null;\r\n    // \u2568\u00C6\u2564\u00FC\u2568\u2510\u2568\u255B\u2568\u255D\u2568\u255B\u2568\u2502\u2568\u2591\u2564\u00E9\u2568\u2561\u2568\u2557\u2564\u00EE\u2568\u255C\u2568\u2591\u2564\u00C5 \u2564\u00E4\u2564\u00E2\u2568\u255C\u2568\u2551\u2564\u00E5\u2568\u2555\u2564\u00C5 \u2568\u2524\u2568\u2557\u2564\u00C5 \u2564\u00FC\u2568\u2592\u2568\u255B\u2564\u00C7\u2568\u2551\u2568\u2555 \u2568\u2556\u2568\u2591\u2568\u2510\u2564\u00C7\u2568\u255B\u2564\u00FC\u2568\u2591\r\n    private static Dictionary\u003Cstring, object?\u003E BuildRequest(IEnumerable\u003CChatMessage\u003E messages, ChatOptions? options)\r\n    {\r\n        return new Dictionary\u003Cstring, object?\u003E\r\n        {\r\n            [\u0022model\u0022] = options?.ModelId ?? \u0022gemma-3-4b-it\u0022,\r\n            [\u0022temperature\u0022] = options?.Temperature ?? 0.7,\r\n            [\u0022messages\u0022] = messages.Select(m =\u003E new\r\n            {\r\n                role = m.Role,\r\n                content = m.Contents\r\n            }).ToArray()\r\n        };\r\n    }\r\n}"},{"FilePath":"CodeReviewAgent/Clients/OpenAICompatibleClient.cs","Comments":[{"Line":7,"Severity":"Warning","Message":"The class implements \u0060IChatClient\u0060 but only provides a \u0060Dispose\u0060 method without explicitly implementing \u0060IDisposable\u0060. Consumers may not realize the client needs to be disposed.","Suggestion":"Add \u0060: IDisposable\u0060 to the class declaration and implement the full dispose pattern, or document that the class should be disposed when used."},{"Line":13,"Severity":"Warning","Message":"The default \u0060baseUrl\u0060 uses the insecure \u0060http\u0060 scheme and is hard\u2011coded to a localhost address.","Suggestion":"Change the default to use \u0060https\u0060 and consider making the base URL required (no default) or configurable via dependency injection. If a default is needed, use a secure endpoint."},{"Line":17,"Severity":"Warning","Message":"A new \u0060HttpClient\u0060 instance is created for each \u0060OpenAICompatibleClient\u0060. Disposing it on every client can lead to socket exhaustion in high\u2011traffic scenarios.","Suggestion":"Inject an \u0060HttpClient\u0060 (or \u0060IHttpClientFactory\u0060) via the constructor and avoid disposing it inside this class, or make the \u0060HttpClient\u0060 static/shared."},{"Line":18,"Severity":"Info","Message":"\u0060_endpoint\u0060 is hard\u2011coded to \u0060v1/chat/completions\u0060.","Suggestion":"Expose the endpoint as a constructor parameter or configuration value to make the client usable with different API paths."},{"Line":23,"Severity":"Warning","Message":"\u0060messages\u0060 parameter is not validated for null before use.","Suggestion":"Add a null\u2011check (\u0060if (messages == null) throw new ArgumentNullException(nameof(messages));\u0060) at the start of the method."},{"Line":34,"Severity":"Info","Message":"\u0060EnsureSuccessStatusCode\u0060 throws a generic \u0060HttpRequestException\u0060 on failure.","Suggestion":"Wrap the call in a try/catch and rethrow a more specific exception that includes the response body for easier debugging."},{"Line":39,"Severity":"Warning","Message":"The response parsing assumes the JSON always contains \u0060choices[0].message.content\u0060. If the API changes or returns an error payload, this will throw.","Suggestion":"Validate the presence of each property using \u0060TryGetProperty\u0060 before accessing, and provide a fallback or throw a descriptive exception if missing."},{"Line":49,"Severity":"Warning","Message":"The streaming method does not honor the supplied \u0060CancellationToken\u0060 inside the read loop.","Suggestion":"Check \u0060cancellationToken.IsCancellationRequested\u0060 each iteration and break the loop, or pass the token to \u0060ReadLineAsync\u0060 if supported."},{"Line":73,"Severity":"Info","Message":"Parsing errors in the streaming loop are written to \u0060Console.WriteLine\u0060.","Suggestion":"Use a proper logging framework (e.g., \u0060ILogger\u0060) and consider propagating the error or yielding an error update instead of silently ignoring it."},{"Line":119,"Severity":"Info","Message":"\u0060RoleToString\u0060 uses a series of \u0060if\u0060 statements and defaults to returning \u0022user\u0022 for unknown roles.","Suggestion":"Replace with a \u0060switch\u0060 expression and throw an exception for unsupported roles to avoid silently mapping to the wrong value."},{"Line":124,"Severity":"Warning","Message":"Returning \u0022user\u0022 for an unknown \u0060ChatRole\u0060 can mask bugs and send incorrect data to the server.","Suggestion":"Throw \u0060ArgumentOutOfRangeException\u0060 for unexpected roles instead of defaulting."},{"Line":112,"Severity":"Info","Message":"The comment notes that \u0060ChatMessage.Contents\u0060 is not correct for the OpenAI wire format, and the code uses \u0060m.Text\u0060.","Suggestion":"Ensure that \u0060ChatMessage\u0060 indeed exposes a \u0060Text\u0060 property that contains the full message content; if the library evolves, consider using a dedicated DTO to avoid coupling to internal representation."},{"Line":1,"Severity":"Info","Message":"The \u0060using\u0060 directives end with a semicolon, which is valid but unconventional in C# style.","Suggestion":"Remove the trailing semicolons for consistency with typical C# coding conventions."}],"OverallScore":38,"DiffContent":"diff --git a/CodeReviewAgent/Clients/OpenAICompatibleClient.cs b/CodeReviewAgent/Clients/OpenAICompatibleClient.cs\r\nnew file mode 100644\r\nindex 0000000..db4cbb0\r\n--- /dev/null\r\n\u002B\u002B\u002B b/CodeReviewAgent/Clients/OpenAICompatibleClient.cs\r\n@@ -0,0 \u002B1,148 @@\r\n\u002Busing System.Net.Http.Json;\r\n\u002Busing System.Text;\r\n\u002Busing System.Text.Json;\r\n\u002Busing Microsoft.Extensions.AI;\r\n\u002B\r\n\u002Bnamespace ReviewAgent.Clients;\r\n\u002B\r\n\u002Bpublic class OpenAICompatibleClient : IChatClient\r\n\u002B{\r\n\u002B    private readonly HttpClient _httpClient;\r\n\u002B    private readonly string _endpoint;\r\n\u002B    private readonly string _model;\r\n\u002B    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);\r\n\u002B\r\n\u002B    public OpenAICompatibleClient(\r\n\u002B        string baseUrl = \u0022http://localhost:1234\u0022,\r\n\u002B        string model = \u0022gemma-3-4b-it\u0022,\r\n\u002B        HttpClient? httpClient = null)\r\n\u002B    {\r\n\u002B        _httpClient = httpClient ?? new HttpClient { BaseAddress = new Uri(baseUrl) };\r\n\u002B        _endpoint = \u0022v1/chat/completions\u0022;\r\n\u002B        _model = model;\r\n\u002B    }\r\n\u002B\r\n\u002B    public void Dispose() =\u003E _httpClient.Dispose();\r\n\u002B    \r\n\u002B    public async Task\u003CChatResponse\u003E GetResponseAsync(\r\n\u002B        IEnumerable\u003CChatMessage\u003E messages,\r\n\u002B        ChatOptions? options = null,\r\n\u002B        CancellationToken cancellationToken = default)\r\n\u002B    {\r\n\u002B        var request = BuildRequest(messages, options);\r\n\u002B\r\n\u002B        using var response = await _httpClient.PostAsJsonAsync(\r\n\u002B            _endpoint,\r\n\u002B            request,\r\n\u002B            _jsonOptions,\r\n\u002B            cancellationToken);\r\n\u002B\r\n\u002B        response.EnsureSuccessStatusCode();\r\n\u002B\r\n\u002B        using var json = await JsonDocument.ParseAsync(\r\n\u002B            await response.Content.ReadAsStreamAsync(cancellationToken),\r\n\u002B            cancellationToken: cancellationToken);\r\n\u002B\r\n\u002B        var root = json.RootElement;\r\n\u002B\r\n\u002B        var content = root\r\n\u002B            .GetProperty(\u0022choices\u0022)[0]\r\n\u002B            .GetProperty(\u0022message\u0022)\r\n\u002B            .GetProperty(\u0022content\u0022)\r\n\u002B            .GetString() ?? string.Empty;\r\n\u002B\r\n\u002B        return new ChatResponse(\r\n\u002B            new[] { new ChatMessage(ChatRole.Assistant, content) }\r\n\u002B        );\r\n\u002B    }\r\n\u002B    \r\n\u002B    public async IAsyncEnumerable\u003CChatResponseUpdate\u003E GetStreamingResponseAsync(\r\n\u002B        IEnumerable\u003CChatMessage\u003E messages,\r\n\u002B        ChatOptions? options = null,\r\n\u002B        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)\r\n\u002B    {\r\n\u002B        var request = BuildRequest(messages, options);\r\n\u002B        request[\u0022stream\u0022] = true;\r\n\u002B\r\n\u002B        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _endpoint)\r\n\u002B        {\r\n\u002B            Content = new StringContent(\r\n\u002B                JsonSerializer.Serialize(request, _jsonOptions),\r\n\u002B                Encoding.UTF8,\r\n\u002B                \u0022application/json\u0022)\r\n\u002B        };\r\n\u002B\r\n\u002B        using var response = await _httpClient.SendAsync(\r\n\u002B            httpRequest,\r\n\u002B            HttpCompletionOption.ResponseHeadersRead,\r\n\u002B            cancellationToken);\r\n\u002B\r\n\u002B        response.EnsureSuccessStatusCode();\r\n\u002B\r\n\u002B        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);\r\n\u002B        using var reader = new StreamReader(stream);\r\n\u002B\r\n\u002B        while (!reader.EndOfStream)\r\n\u002B        {\r\n\u002B            var line = await reader.ReadLineAsync();\r\n\u002B            if (string.IsNullOrWhiteSpace(line)) continue;\r\n\u002B\r\n\u002B            // LM Studio formates SSE (Server-Sent Events)\r\n\u002B            if (line.StartsWith(\u0022data: \u0022))\r\n\u002B                line = line[6..].Trim();\r\n\u002B\r\n\u002B            if (line == \u0022[DONE]\u0022) yield break;\r\n\u002B\r\n\u002B            ChatResponseUpdate? update = null;\r\n\u002B            try\r\n\u002B            {\r\n\u002B                var json = JsonDocument.Parse(line);\r\n\u002B                var delta = json.RootElement\r\n\u002B                    .GetProperty(\u0022choices\u0022)[0]\r\n\u002B                    .GetProperty(\u0022delta\u0022);\r\n\u002B\r\n\u002B                if (delta.TryGetProperty(\u0022content\u0022, out var contentProp))\r\n\u002B                {\r\n\u002B                    var chunk = contentProp.GetString();\r\n\u002B                    if (!string.IsNullOrEmpty(chunk))\r\n\u002B                    {\r\n\u002B                        update = new ChatResponseUpdate(ChatRole.Assistant, chunk);\r\n\u002B                    }\r\n\u002B                }\r\n\u002B            }\r\n\u002B            catch (Exception ex)\r\n\u002B            {\r\n\u002B                Console.WriteLine($\u0022[OpenAICompatible] Stream parse error: {ex.Message}\u0022);\r\n\u002B            }\r\n\u002B\r\n\u002B            if (update != null)\r\n\u002B                yield return update;\r\n\u002B        }\r\n\u002B    }\r\n\u002B\r\n\u002B    public object? GetService(Type serviceType, object? serviceKey = null) =\u003E null;\r\n\u002B    \r\n\u002B    private Dictionary\u003Cstring, object?\u003E BuildRequest(\r\n\u002B        IEnumerable\u003CChatMessage\u003E messages,\r\n\u002B        ChatOptions? options)\r\n\u002B    {\r\n\u002B        return new Dictionary\u003Cstring, object?\u003E\r\n\u002B        {\r\n\u002B            [\u0022model\u0022] = options?.ModelId ?? _model,\r\n\u002B            [\u0022temperature\u0022] = options?.Temperature ?? 0.7,\r\n\u002B            [\u0022messages\u0022] = messages.Select(m =\u003E new\r\n\u002B            {\r\n\u002B                role = RoleToString(m.Role),\r\n\u002B                content = m.Text // Important: ChatMessage.Contents is not correct for OpenAI wire format\r\n\u002B            }).ToArray()\r\n\u002B        };\r\n\u002B    }\r\n\u002B\r\n\u002B    private static string RoleToString(ChatRole role)\r\n\u002B    {\r\n\u002B        if (role.Equals(ChatRole.User)) return \u0022user\u0022;\r\n\u002B        if (role.Equals(ChatRole.System)) return \u0022system\u0022;\r\n\u002B        if (role.Equals(ChatRole.Assistant)) return \u0022assistant\u0022;\r\n\u002B        return \u0022user\u0022;\r\n\u002B    }\r\n\u002B}","FullContent":"using System.Net.Http.Json;\r\nusing System.Text;\r\nusing System.Text.Json;\r\nusing Microsoft.Extensions.AI;\r\nnamespace ReviewAgent.Clients;\r\npublic class OpenAICompatibleClient : IChatClient\r\n{\r\n    private readonly HttpClient _httpClient;\r\n    private readonly string _endpoint;\r\n    private readonly string _model;\r\n    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);\r\n    public OpenAICompatibleClient(\r\n        string baseUrl = \u0022http://localhost:1234\u0022,\r\n        string model = \u0022gemma-3-4b-it\u0022,\r\n        HttpClient? httpClient = null)\r\n    {\r\n        _httpClient = httpClient ?? new HttpClient { BaseAddress = new Uri(baseUrl) };\r\n        _endpoint = \u0022v1/chat/completions\u0022;\r\n        _model = model;\r\n    }\r\n    public void Dispose() =\u003E _httpClient.Dispose();\r\n    \r\n    public async Task\u003CChatResponse\u003E GetResponseAsync(\r\n        IEnumerable\u003CChatMessage\u003E messages,\r\n        ChatOptions? options = null,\r\n        CancellationToken cancellationToken = default)\r\n    {\r\n        var request = BuildRequest(messages, options);\r\n        using var response = await _httpClient.PostAsJsonAsync(\r\n            _endpoint,\r\n            request,\r\n            _jsonOptions,\r\n            cancellationToken);\r\n        response.EnsureSuccessStatusCode();\r\n        using var json = await JsonDocument.ParseAsync(\r\n            await response.Content.ReadAsStreamAsync(cancellationToken),\r\n            cancellationToken: cancellationToken);\r\n        var root = json.RootElement;\r\n        var content = root\r\n            .GetProperty(\u0022choices\u0022)[0]\r\n            .GetProperty(\u0022message\u0022)\r\n            .GetProperty(\u0022content\u0022)\r\n            .GetString() ?? string.Empty;\r\n        return new ChatResponse(\r\n            new[] { new ChatMessage(ChatRole.Assistant, content) }\r\n        );\r\n    }\r\n    \r\n    public async IAsyncEnumerable\u003CChatResponseUpdate\u003E GetStreamingResponseAsync(\r\n        IEnumerable\u003CChatMessage\u003E messages,\r\n        ChatOptions? options = null,\r\n        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)\r\n    {\r\n        var request = BuildRequest(messages, options);\r\n        request[\u0022stream\u0022] = true;\r\n        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _endpoint)\r\n        {\r\n            Content = new StringContent(\r\n                JsonSerializer.Serialize(request, _jsonOptions),\r\n                Encoding.UTF8,\r\n                \u0022application/json\u0022)\r\n        };\r\n        using var response = await _httpClient.SendAsync(\r\n            httpRequest,\r\n            HttpCompletionOption.ResponseHeadersRead,\r\n            cancellationToken);\r\n        response.EnsureSuccessStatusCode();\r\n        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);\r\n        using var reader = new StreamReader(stream);\r\n        while (!reader.EndOfStream)\r\n        {\r\n            var line = await reader.ReadLineAsync();\r\n            if (string.IsNullOrWhiteSpace(line)) continue;\r\n            // LM Studio formates SSE (Server-Sent Events)\r\n            if (line.StartsWith(\u0022data: \u0022))\r\n                line = line[6..].Trim();\r\n            if (line == \u0022[DONE]\u0022) yield break;\r\n            ChatResponseUpdate? update = null;\r\n            try\r\n            {\r\n                var json = JsonDocument.Parse(line);\r\n                var delta = json.RootElement\r\n                    .GetProperty(\u0022choices\u0022)[0]\r\n                    .GetProperty(\u0022delta\u0022);\r\n                if (delta.TryGetProperty(\u0022content\u0022, out var contentProp))\r\n                {\r\n                    var chunk = contentProp.GetString();\r\n                    if (!string.IsNullOrEmpty(chunk))\r\n                    {\r\n                        update = new ChatResponseUpdate(ChatRole.Assistant, chunk);\r\n                    }\r\n                }\r\n            }\r\n            catch (Exception ex)\r\n            {\r\n                Console.WriteLine($\u0022[OpenAICompatible] Stream parse error: {ex.Message}\u0022);\r\n            }\r\n            if (update != null)\r\n                yield return update;\r\n        }\r\n    }\r\n    public object? GetService(Type serviceType, object? serviceKey = null) =\u003E null;\r\n    \r\n    private Dictionary\u003Cstring, object?\u003E BuildRequest(\r\n        IEnumerable\u003CChatMessage\u003E messages,\r\n        ChatOptions? options)\r\n    {\r\n        return new Dictionary\u003Cstring, object?\u003E\r\n        {\r\n            [\u0022model\u0022] = options?.ModelId ?? _model,\r\n            [\u0022temperature\u0022] = options?.Temperature ?? 0.7,\r\n            [\u0022messages\u0022] = messages.Select(m =\u003E new\r\n            {\r\n                role = RoleToString(m.Role),\r\n                content = m.Text // Important: ChatMessage.Contents is not correct for OpenAI wire format\r\n            }).ToArray()\r\n        };\r\n    }\r\n    private static string RoleToString(ChatRole role)\r\n    {\r\n        if (role.Equals(ChatRole.User)) return \u0022user\u0022;\r\n        if (role.Equals(ChatRole.System)) return \u0022system\u0022;\r\n        if (role.Equals(ChatRole.Assistant)) return \u0022assistant\u0022;\r\n        return \u0022user\u0022;\r\n    }\r\n}"},{"FilePath":"CodeReviewAgent/CodeReviewAgent.csproj","Comments":[{"Line":1,"Severity":"Warning","Message":"The file starts with visible UTF\u20118 BOM characters (\u2229\u2557\u2510). This indicates the BOM was not handled correctly and appears as garbage characters in the source.","Suggestion":"Remove the BOM from the file or ensure the editor saves the file without emitting visible BOM characters. In most editors you can re\u2011save the file as UTF\u20118 without BOM."},{"Line":4,"Severity":"Info","Message":"The project targets \u003CTargetFramework\u003Enet9.0\u003C/TargetFramework\u003E, which at the time of writing is a preview / future version of .NET.","Suggestion":"If the code is intended for production, consider targeting the latest stable LTS framework (e.g., net8.0). If you deliberately need net9.0 preview features, add a \u003CEnablePreviewFeatures\u003Etrue\u003C/EnablePreviewFeatures\u003E flag and document the reason."},{"Line":16,"Severity":"Info","Message":"Embedded resources are set to \u003CCopyToOutputDirectory\u003EAlways\u003C/CopyToOutputDirectory\u003E. This forces the file to be copied on every build, even when unchanged, which can increase build time.","Suggestion":"Change the value to \u003CCopyToOutputDirectory\u003EPreserveNewest\u003C/CopyToOutputDirectory\u003E so the file is only copied when it has changed."},{"Line":2,"Severity":"Info","Message":"The project does not enable any strict build settings such as treating warnings as errors or generating XML documentation.","Suggestion":"Consider adding \u003CTreatWarningsAsErrors\u003Etrue\u003C/TreatWarningsAsErrors\u003E and \u003CGenerateDocumentationFile\u003Etrue\u003C/GenerateDocumentationFile\u003E to improve code quality and maintainability."}],"OverallScore":86,"DiffContent":"diff --git a/CodeReviewAgent/CodeReviewAgent.csproj b/CodeReviewAgent/CodeReviewAgent.csproj\r\nnew file mode 100644\r\nindex 0000000..1a747bf\r\n--- /dev/null\r\n\u002B\u002B\u002B b/CodeReviewAgent/CodeReviewAgent.csproj\r\n@@ -0,0 \u002B1,27 @@\r\n\u002B\u2229\u2557\u2510\u003CProject Sdk=\u0022Microsoft.NET.Sdk\u0022\u003E\r\n\u002B\r\n\u002B    \u003CPropertyGroup\u003E\r\n\u002B        \u003COutputType\u003EExe\u003C/OutputType\u003E\r\n\u002B        \u003CTargetFramework\u003Enet9.0\u003C/TargetFramework\u003E\r\n\u002B        \u003CImplicitUsings\u003Eenable\u003C/ImplicitUsings\u003E\r\n\u002B        \u003CNullable\u003Eenable\u003C/Nullable\u003E\r\n\u002B    \u003C/PropertyGroup\u003E\r\n\u002B\r\n\u002B    \u003CItemGroup\u003E\r\n\u002B        \u003CPackageReference Include=\u0022Microsoft.Extensions.AI\u0022 Version=\u00229.10.1\u0022 /\u003E\r\n\u002B        \u003CPackageReference Include=\u0022Microsoft.Extensions.Logging\u0022 Version=\u00229.0.10\u0022 /\u003E\r\n\u002B        \u003CPackageReference Include=\u0022Microsoft.Extensions.Logging.Console\u0022 Version=\u00229.0.10\u0022 /\u003E\r\n\u002B    \u003C/ItemGroup\u003E\r\n\u002B\r\n\u002B    \u003CItemGroup\u003E\r\n\u002B      \u003CNone Remove=\u0022Templates\\default-comment-template.html\u0022 /\u003E\r\n\u002B      \u003CEmbeddedResource Include=\u0022Templates\\default-comment-template.html\u0022\u003E\r\n\u002B        \u003CCopyToOutputDirectory\u003EAlways\u003C/CopyToOutputDirectory\u003E\r\n\u002B      \u003C/EmbeddedResource\u003E\r\n\u002B      \u003CNone Remove=\u0022Templates\\default-review-rules.txt\u0022 /\u003E\r\n\u002B      \u003CEmbeddedResource Include=\u0022Templates\\default-review-rules.txt\u0022\u003E\r\n\u002B        \u003CCopyToOutputDirectory\u003EAlways\u003C/CopyToOutputDirectory\u003E\r\n\u002B      \u003C/EmbeddedResource\u003E\r\n\u002B    \u003C/ItemGroup\u003E\r\n\u002B\r\n\u002B\u003C/Project\u003E","FullContent":"\u2229\u2557\u2510\u003CProject Sdk=\u0022Microsoft.NET.Sdk\u0022\u003E\r\n    \u003CPropertyGroup\u003E\r\n        \u003COutputType\u003EExe\u003C/OutputType\u003E\r\n        \u003CTargetFramework\u003Enet9.0\u003C/TargetFramework\u003E\r\n        \u003CImplicitUsings\u003Eenable\u003C/ImplicitUsings\u003E\r\n        \u003CNullable\u003Eenable\u003C/Nullable\u003E\r\n    \u003C/PropertyGroup\u003E\r\n    \u003CItemGroup\u003E\r\n        \u003CPackageReference Include=\u0022Microsoft.Extensions.AI\u0022 Version=\u00229.10.1\u0022 /\u003E\r\n        \u003CPackageReference Include=\u0022Microsoft.Extensions.Logging\u0022 Version=\u00229.0.10\u0022 /\u003E\r\n        \u003CPackageReference Include=\u0022Microsoft.Extensions.Logging.Console\u0022 Version=\u00229.0.10\u0022 /\u003E\r\n    \u003C/ItemGroup\u003E\r\n    \u003CItemGroup\u003E\r\n      \u003CNone Remove=\u0022Templates\\default-comment-template.html\u0022 /\u003E\r\n      \u003CEmbeddedResource Include=\u0022Templates\\default-comment-template.html\u0022\u003E\r\n        \u003CCopyToOutputDirectory\u003EAlways\u003C/CopyToOutputDirectory\u003E\r\n      \u003C/EmbeddedResource\u003E\r\n      \u003CNone Remove=\u0022Templates\\default-review-rules.txt\u0022 /\u003E\r\n      \u003CEmbeddedResource Include=\u0022Templates\\default-review-rules.txt\u0022\u003E\r\n        \u003CCopyToOutputDirectory\u003EAlways\u003C/CopyToOutputDirectory\u003E\r\n      \u003C/EmbeddedResource\u003E\r\n    \u003C/ItemGroup\u003E\r\n\u003C/Project\u003E"},{"FilePath":"CodeReviewAgent/CodeReviewOptions.cs","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: \u0027T\u0027 is an invalid start of a value. Path: $.comments[8].message | LineNumber: 53 | BytePositionInLine: 17.","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/GitDiffService.cs","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/Program.cs","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/Services/CodeReviewService.cs","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/Services/FileAnalysisService.cs","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/Services/Models.cs","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/Templates/default-comment-template.html","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/Templates/default-review-rules.txt","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"CodeReviewAgent/Utils/IgnorePatternMatcher.cs","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null},{"FilePath":"README.md","Comments":[{"Line":1,"Severity":"Error","Message":"Could not complete code review: No connection could be made because the target machine actively refused it. (localhost:8033)","Suggestion":""}],"OverallScore":0,"DiffContent":null,"FullContent":null}]};
+        
+        // Helper function to format date
+        function formatDate(date) {
+            return new Date(date).toLocaleString();
+        }
+        
+        // Render a single file review section
+        function renderFileReview(fileData) {
+            const severityCounts = { critical: 0, error: 0, warning: 0, info: 0 };
+            
+            let commentsHtml = '';
+            for (const comment of fileData.Comments) {
+                if (!severityCounts[comment.Severity.toLowerCase()])
+                    severityCounts[comment.Severity.toLowerCase()] = 0;
+                    
+                severityCounts[comment.Severity.toLowerCase()]++;
+                
+                const severityClass = `severity-${comment.Severity.toLowerCase()}`;
+                commentsHtml += `
+                    <div class="comment ${severityClass}">
+                        <div class="comment-info">
+                            <span>Line ${comment.Line}</span>
+                            <span class="${comment.Severity.toLowerCase()}">${comment.Severity}</span>
+                        </div>
+                        <div>${comment.Message}</div>
+                        ${comment.Suggestion ? `
+                            <div class="suggestion">
+                                <span class="suggestion-label">SUGGESTED FIX:</span>
+                                ${comment.Suggestion}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="file-section">
+                    <div class="file-header">
+                        <div class="file-path">${fileData.FilePath}</div>
+                        <div class="score-badge">Score: ${fileData.OverallScore}/100</div>
+                    </div>
+                    
+                    ${config.showDiff ? `
+                    <div class="diff-section">
+${fileData.DiffContent}
+                    </div>
+                    ` : ''}
+                    
+                    <div style="padding: 15px;">
+                        <h4>Comments (${fileData.Comments.length})</h4>
+                        ${commentsHtml || '<p style="color: #28a745; font-style: italic;">No review comments found.</p>'}
+                    </div>
+                    
+                    ${config.showFullContent ? `
+                    <div class="file-content">
+${fileData.FullContent}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        // Update statistics
+        function updateStats() {
+            let totalFiles = 0, criticalCount = 0, errorCount = 0, warningCount = 0, infoCount = 0;
+            
+            for (const file of config.files) {
+                totalFiles++;
+                
+                for (const comment of file.Comments) {
+                    switch(comment.Severity.toLowerCase()) {
+                        case 'critical': criticalCount++; break;
+                        case 'error': errorCount++; break;
+                        case 'warning': warningCount++; break;
+                        case 'info': infoCount++; break;
+                    }
+                }
+            }
+            
+            document.getElementById('total-files').textContent = totalFiles;
+            document.getElementById('critical-count').textContent = criticalCount;
+            document.getElementById('error-count').textContent = errorCount;
+            document.getElementById('warning-count').textContent = warningCount;
+            document.getElementById('info-count').textContent = infoCount;
+        }
+        
+        // Initialize the page
+        function initialize() {
+            document.getElementById('generated-date').textContent = formatDate(new Date());
+            document.getElementById('repository-path').textContent = config.repositoryPath || 'Unknown';
+            document.getElementById('model-name').textContent = config.modelName || 'gemma-3-4b-it';
+            
+            const reviewsContainer = document.getElementById('file-reviews');
+            
+            if (config.files.length === 0) {
+                reviewsContainer.innerHTML = '<p style="text-align: center; color: #6c757d;">No files to review.</p>';
+            } else {
+                for (const file of config.files) {
+                    reviewsContainer.innerHTML += renderFileReview(file);
+                }
+                
+                updateStats();
+            }
+        }
+        
+        // Call initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

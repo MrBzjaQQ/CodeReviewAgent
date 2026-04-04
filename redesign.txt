@@ -1,0 +1,94 @@
+## General Task Description
+
+You are a Senior dotnet developer. You have a Code Review Agent project, which is proove of concept right now. You need to rewrite it according to modern architecture.
+
+## Solution Structure
+
+### CodeReviewAgent - console application.
+
+#### Folders:
+
+* Clients - contains supported clients. Keep it as is.
+* Tools - contains Tools and ITool interface.
+* Services - contains CodeReviewService.
+* Factories - contains IToolFactory and ToolFactory.
+* Context - contains IContextService and ContextService that used by CodeReviewService and allows to manipulate context.
+
+#### Implementation Details:
+
+1. Clients - keep them as is, we do not have to change it right now.
+
+2. Tools. ITool interface:
+
+```csharp
+public interface ITool<TResult>
+{
+    public string ToolName { get; }
+
+    public Task<TResult> RunToolAsync(params string[] parameters);
+}
+```
+
+Tools to be implemented:
+
+* ReadFileTreeTool - gets a list of files inside the folder.
+* ReadFileTool - reads file content and returns as a result.
+* WriteFileTool - writes result into file.
+* SearchAndReplaceTool - searches entry in file and replace partially.
+* FileGitDiffTool - Gets git diff for specific file.
+
+Each tool logs into console what it is doing and their result.
+
+3. Services. Code review service should perform a task of code review using LLM client.
+
+Algorythm:
+
+1. Get git diff for each file one by one. Each file is going to be a separate subtask for code review.
+2. Provide a subtask to llm. Prompt structure:
+    * General task description.
+    * Available tools.
+    * File Tree.
+    * Additional instructions.
+    * Response pattern.
+LLM should decide which tool it will use. Firstly it should get all required code in context: changed file, it's dependencies and required dependencies of dependencies. Then the llm should perform a code review and write a result to the result file. This part should be a cycle of tool calling until llm gets the review result (by calling a tool).
+
+If tool call failed, llm must retry tool call.
+
+You should use IgnorePatternMatcher or custom ignore file provided by user. It exists in current implementation.
+
+4. Factories.
+
+ToolFactory should return tool by it's ToolName.
+
+5. Context.
+
+Context service should have methods to return: available tools, file tree, additional instructions, response pattern.
+
+### Technologies.
+
+- C# 9.
+- Console Application.
+- xUnit unit tests.
+- Microsoft.Extensions.AI.
+
+### Implementation steps:
+
+1. Implement tools. Each tool must be covered by unit tests.
+
+2. Implement services. Each service must be covered by unit tests.
+
+3. Implement factories. Each factory mush be covered by unit tests.
+
+4. Implement context. Each service in Context folder must be covered by unit tests.
+
+5. Update Program.cs with new implementation.
+
+6. Build Solution. Fix it until build is succeeded.
+
+7. Run tests.
+
+8. Test the application.
+
+9. When the app is ready, stop the application.
+
+10. Verify that all tests are passed.

@@ -1,0 +1,14 @@
+Perform a thorough code review of the changed file. Identify potential issues, improvements, and best practices.
+
+IMPORTANT: When you need to read files or get file tree, you MUST call the tools directly using function call syntax like:
+- ReadFileTool("path/to/file.cs")
+- ReadFileTreeTool("path/to/directory")
+
+Do NOT use markdown tool descriptions or XML tags. Just call the functions directly with the path as argument.
+
+Your task is to:
+1. Use the available tools to gather all necessary context (the changed file, its dependencies, and required dependencies of dependencies)
+2. Perform a detailed code review analyzing code quality, security, performance, and best practices
+3. Write your findings to the result file using WriteFileTool
+
+Be thorough in your analysis and provide specific, actionable feedback.

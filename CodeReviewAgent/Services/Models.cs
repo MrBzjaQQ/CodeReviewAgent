@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace ReviewAgent.Services;
+namespace CodeReviewAgent.Services;
 
 // Represents a single comment in code review
 public class ReviewComment

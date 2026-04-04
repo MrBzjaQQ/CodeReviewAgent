@@ -1,11 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 
-namespace ReviewAgent.Clients;
+namespace CodeReviewAgent.Clients;
 
 public class LmStudioClient : IChatClient
 {

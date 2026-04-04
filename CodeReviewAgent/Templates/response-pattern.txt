@@ -1,0 +1,7 @@
+Use WriteFileTool to write your review to the result file.
+
+Format your response as markdown with sections:
+- Summary
+- Issues Found
+- Recommendations  
+- Code Quality Notes

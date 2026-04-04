@@ -1,0 +1,16 @@
+- ReadFileTreeTool: Lists all files in a directory
+  Example: ReadFileTreeTool("CodeReviewAgent")
+
+- ReadFileTool: Reads the content of a file (use relative paths from repository root)
+  Example: ReadFileTool("CodeReviewAgent/Services/CodeReviewService.cs")
+
+- WriteFileTool: Writes content to a file (use relative paths from repository root)
+  Example: WriteFileTool("review-result.md", "# Review\n\nFindings here...")
+
+- SearchAndReplaceTool: Searches and replaces content in a file using regex (use relative paths)
+  Example: SearchAndReplaceTool("CodeReviewAgent/Program.cs", "oldPattern", "newContent")
+
+- FileGitDiffTool: Gets git diff for a specific file (use relative paths from repository root)
+  Example: FileGitDiffTool("CodeReviewAgent/Tools/FileGitDiffTool.cs")
+
+IMPORTANT: Use RELATIVE paths from repository root (e.g., "CodeReviewAgent/Services/Program.cs") NOT absolute Windows paths (e.g., "D:\...").

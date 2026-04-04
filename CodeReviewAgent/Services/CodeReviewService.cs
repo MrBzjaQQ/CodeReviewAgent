@@ -1,320 +1,317 @@
-using System.Text;
-using System.Text.Json;
+using System.ComponentModel;
+using CodeReviewAgent.Context;
+using CodeReviewAgent.Factories;
+using CodeReviewAgent.Tools;
+using CodeReviewAgent.Utils;
 using Microsoft.Extensions.AI;
 
-namespace ReviewAgent.Services;
+namespace CodeReviewAgent.Services;
 
 public class CodeReviewService
 {
-    private readonly IChatClient _llmClient;
-    private readonly FileAnalysisService _fileAnalysisService;
-    private readonly Utils.IgnorePatternMatcher _ignorePatterns;
-    private readonly CodeReviewOptions _options;
-    
-    public CodeReviewService(IChatClient llmClient, FileAnalysisService fileAnalysisService, Utils.IgnorePatternMatcher ignorePatterns, CodeReviewOptions options)
+    private readonly IChatClient _chatClient;
+    private readonly IContextService _contextService;
+    private readonly IToolFactory _toolFactory;
+    private readonly IgnorePatternMatcher _ignorePatternMatcher;
+    private readonly string _startCommit;
+    private readonly string _endCommit;
+    private readonly string _repositoryPath;
+
+    public CodeReviewService(
+        IChatClient chatClient,
+        IContextService contextService,
+        IToolFactory toolFactory,
+        IgnorePatternMatcher ignorePatternMatcher,
+        string? startCommit = null,
+        string? endCommit = null,
+        string? repositoryPath = null)
     {
-        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
-        _fileAnalysisService = fileAnalysisService ?? throw new ArgumentNullException(nameof(fileAnalysisService));
-        _ignorePatterns = ignorePatterns ?? throw new ArgumentNullException(nameof(ignorePatterns));
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _chatClient = chatClient;
+        _contextService = contextService;
+        _toolFactory = toolFactory;
+        _ignorePatternMatcher = ignorePatternMatcher;
+        _startCommit = startCommit ?? "HEAD~1";
+        _endCommit = endCommit ?? "HEAD";
+        _repositoryPath = repositoryPath ?? ".";
     }
-    
-    public async Task<FileReviewResult[]> ReviewFilesAsync(List<GitDiffResult> files, string reviewRules)
+
+    public async Task PerformCodeReviewAsync(List<string> filesToReview)
     {
-        var results = new List<FileReviewResult>();
+        Console.WriteLine("Starting code review process...");
+
+        foreach (var file in filesToReview)
+        {
+            if (_ignorePatternMatcher.ShouldIgnore(file))
+            {
+                Console.WriteLine($"Skipping ignored file: {file}");
+                continue;
+            }
+
+            Console.WriteLine($"Reviewing file: {file}");
+            await ReviewFileAsync(file).ConfigureAwait(false);
+        }
+
+        Console.WriteLine("Code review process completed.");
+    }
+
+    private async Task ReviewFileAsync(string filePath)
+    {
+        var gitDiffTool = (IFileGitDiffTool)_toolFactory.CreateTool("FileGitDiffTool");
+        var diff = await gitDiffTool.RunToolAsync(filePath, _startCommit, _endCommit, _repositoryPath).ConfigureAwait(false);
+
+        if (string.IsNullOrEmpty(diff))
+        {
+            Console.WriteLine($"No changes detected in {filePath}, skipping review.");
+            return;
+        }
+
+        var prompt = BuildPrompt(filePath, diff);
+        var resultFile = Path.Combine(Path.GetDirectoryName(filePath) ?? ".", "review-result.md");
+
+        await ExecuteToolCycleAsync(prompt, resultFile).ConfigureAwait(false);
+    }
+
+    private string BuildPrompt(string filePath, string diff)
+    {
+        var fileTree = _contextService.GetFileTree();
+        var systemPrompt = _contextService.GetSystemPrompt();
+        var toolsDescription = _contextService.GetToolsDescription();
+        var additionalInstructions = _contextService.GetAdditionalInstructions();
+        var responsePattern = _contextService.GetResponsePattern();
+
+        var relativeFilePath = GetRelativePath(filePath);
+
+        return $@"
+# Code Review Task
+
+## General Task Description
+{systemPrompt}
+
+## Available Tools
+{toolsDescription}
+
+## File Tree
+{string.Join(Environment.NewLine, fileTree.Take(50))}
+(Showing first 50 files)
+
+## Changed File
+File: {relativeFilePath}
+Diff:
+{diff}
+
+## Additional Instructions
+{additionalInstructions}
+
+## Response Pattern
+{responsePattern}
+";
+    }
+
+    private string GetRelativePath(string fullPath)
+    {
+        if (string.IsNullOrEmpty(_repositoryPath) || _repositoryPath == ".")
+            return fullPath;
+
+        try
+        {
+            var fullRepoPath = Path.GetFullPath(_repositoryPath);
+            return Path.GetRelativePath(fullRepoPath, fullPath).Replace('\\', '/');
+        }
+        catch
+        {
+            return fullPath;
+        }
+    }
+
+    private async Task ExecuteToolCycleAsync(string prompt, string resultFile)
+    {
+        var tools = CreateAIFunctions();
         
-        foreach (var file in files)
+        var chatClient = _chatClient.AsBuilder()
+            .UseFunctionInvocation()
+            .Build();
+
+        var chatOptions = new ChatOptions
+        {
+            MaxOutputTokens = 4000,
+            Tools = tools.Cast<AITool>().ToList()
+        };
+
+        Console.WriteLine("Sending request to LLM with tools...");
+
+        var maxIterations = 10;
+        var iteration = 0;
+        var lastContent = prompt;
+
+        while (iteration < maxIterations)
+        {
+            iteration++;
+            Console.WriteLine($"\n=== Tool Cycle Iteration {iteration} ===");
+
+            var response = await chatClient.GetResponseAsync(lastContent, chatOptions).ConfigureAwait(false);
+            
+            var assistantMessage = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
+            if (assistantMessage == null)
+            {
+                Console.WriteLine("No assistant response received.");
+                break;
+            }
+
+            var content = assistantMessage.Text;
+            Console.WriteLine($"LLM Response: {content?.Substring(0, Math.Min(500, content.Length))}...");
+
+            if (string.IsNullOrEmpty(content))
+            {
+                Console.WriteLine("Empty response. Review complete.");
+                break;
+            }
+
+            var toolResults = await ParseAndExecuteToolsAsync(content).ConfigureAwait(false);
+            
+            if (string.IsNullOrEmpty(toolResults))
+            {
+                Console.WriteLine("No tool calls in response. Review complete.");
+                break;
+            }
+
+            lastContent = content + "\n\n" + toolResults;
+        }
+
+        if (iteration >= maxIterations)
+        {
+            Console.WriteLine("Reached maximum iterations.");
+        }
+    }
+
+    private async Task<string> ParseAndExecuteToolsAsync(string content)
+    {
+        var results = new List<string>();
+        var toolCalls = ParseToolCalls(content);
+
+        if (!toolCalls.Any())
+        {
+            return string.Empty;
+        }
+
+        foreach (var (toolName, args) in toolCalls)
         {
             try
             {
-                // Check if the file should be ignored based on patterns
-                if (_ignorePatterns.ShouldIgnore(file.FilePath))
-                {
-                    Console.WriteLine($"Skipping ignored file: {file.FilePath}");
-                    continue;
-                }
-                
-                // Get dependencies for this file (e.g., related class definitions)
-                var dependenciesDict = await _fileAnalysisService.GetRelatedDependenciesAsync(file.FilePath, file.FullContent);
-                
-                // Prepare the review prompt
-                var reviewPrompt = BuildReviewPrompt(file, dependenciesDict, reviewRules);
-                
-                Console.WriteLine($"Reviewing {file.FilePath}...");
-                
-                // Get LLM response for code review
-                var messages = new List<ChatMessage>
-                {
-                    new ChatMessage(ChatRole.User, reviewPrompt)
-                };
-                
-                try
-                {
-                    var chatOptions = new ChatOptions 
-                    { 
-                        ModelId = _options.ModelName,
-                        Temperature = (float)_options.Temperature,
-                        // AdditionalProperties is of type AdditionalPropertiesDictionary, not Dictionary<string, object>
-                        AdditionalProperties = new Microsoft.Extensions.AI.AdditionalPropertiesDictionary()
-                        {
-                            ["max_tokens"] = 2000
-                        }
-                    };
-                    ReviewComments comments = new ReviewComments();
-                    for (int retryAttempt = 0; retryAttempt < 3; retryAttempt++)
-                    {
-                        try
-                        {
-                            // Get review response from LLM
-                            var response = await _llmClient.GetResponseAsync(messages, chatOptions);
-
-                            // Parse the response to extract structured comments - use ToString() for now as a fallback
-                            var content = "";
-                            if (response is ChatResponse chatResponse)
-                            {
-                                content = string.Join("", chatResponse.Messages.Select(m => m.Text ?? ""));
-                            }
-                            else
-                            {
-                                content = response.ToString();
-                            }
-
-                            comments = JsonSerializer.Deserialize<ReviewComments>(content, JsonSerializerOptions.Web);
-                        }
-                        catch
-                        {
-                            // Только последняя попытка идёт в список ошибок
-                            if (retryAttempt == 2)
-                            {
-                                throw;
-                            }
-                        }
-                    }
-
-                    // Calculate an overall score (0-100)
-                    var overallScore = CalculateOverallScore(comments.Comments.ToArray());
-                    
-                    results.Add(new FileReviewResult 
-                    {
-                        FilePath = file.FilePath,
-                        Comments = comments.Comments,
-                        OverallScore = overallScore,
-                        DiffContent = file.DiffContent,
-                        FullContent = file.FullContent,
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error reviewing {file.FilePath}: {ex.Message}");
-                    
-                    // Add error as a comment in the review result
-                    results.Add(new FileReviewResult 
-                    {
-                        FilePath = file.FilePath,
-                        Comments = 
-                        [ 
-                            new ReviewComment 
-                            { 
-                                Line = 1, 
-                                Severity = "Error", 
-                                Message = $"Could not complete code review: {ex.Message}" 
-                            } 
-                        ],
-                        OverallScore = 0
-                    });
-                }
+                var result = await ExecuteToolAsync(toolName, args).ConfigureAwait(false);
+                results.Add($"[Tool Result for {toolName}]: {result}");
+                Console.WriteLine($"Tool '{toolName}' executed successfully.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing file {file.FilePath}: {ex.Message}");
-                
-                // Add error as a comment in the review result
-                results.Add(new FileReviewResult 
-                {
-                    FilePath = file.FilePath,
-                    Comments =
-                        [ 
-                            new ReviewComment 
-                            { 
-                                Line = 1, 
-                                Severity = "Error", 
-                                Message = $"Could not process file: {ex.Message}" 
-                            } 
-                        ],
-                    OverallScore = 0
-                });
+                results.Add($"[Tool Error for {toolName}]: {ex.Message}");
+                Console.WriteLine($"Tool '{toolName}' failed: {ex.Message}");
             }
         }
-        
-        return results.ToArray();
+
+        return string.Join("\n\n", results);
     }
-    
-    private string BuildReviewPrompt(GitDiffResult file, Dictionary<string, string> dependencies, string reviewRules)
+
+    private List<(string Name, string[] Args)> ParseToolCalls(string content)
     {
-        var sb = new StringBuilder();
+        var toolCalls = new List<(string Name, string[] Args)>();
         
-        // Add system context and rules
-        sb.AppendLine("=== CODE REVIEW CONTEXT ===");
-        sb.AppendLine($"REPOSITORY: {System.IO.Path.GetDirectoryName(file.FilePath)}");
-        sb.AppendLine($"FILE: {file.FilePath}");
-        sb.AppendLine("LANGUAGE: " + System.IO.Path.GetExtension(file.FilePath).TrimStart('.')?.ToUpper() ?? "UNKNOWN");
-        if (dependencies.Count > 0)
+        var patterns = new List<(string Pattern, string Name)>
         {
-            sb.AppendLine("DEPENDENCIES FOUND:");
-            foreach (var dep in dependencies.Take(5)) // Limit to first 5 for context
-                sb.AppendLine($" - {dep.Key}: {dep.Value}");
-            if (dependencies.Count > 5)
-                sb.AppendLine($" ... and {dependencies.Count - 5} more dependencies");
-        }
-        sb.AppendLine();
-        
-        // Add review rules
-        sb.AppendLine("=== REVIEW RULES ===");
-        sb.AppendLine(reviewRules);
-        sb.AppendLine();
-        
-        // Add git diff context
-        if (file.Changes.Count != 0)
-        {
-            sb.AppendLine("=== GIT DIFF CONTEXT ===");
-            sb.AppendLine("The following changes were made to this file:");
-            sb.AppendLine("```diff");
-            sb.AppendLine(string.Join("\n", file.Changes));
-            sb.AppendLine("```");
-            sb.AppendLine();
-        }
-        
-        // Add full file content
-        sb.AppendLine("=== FILE CONTENT ===");
-        if (!string.IsNullOrEmpty(file.FullContent))
-        {
-            var lines = file.FullContent.Split('\n');
+            (@"ReadFileTreeTool\s*\(\s*""([^""]*)""\s*\)", "ReadFileTreeTool"),
+            (@"ReadFileTool\s*\(\s*""([^""]*)""\s*\)", "ReadFileTool"),
+            (@"WriteFileTool\s*\(\s*""([^""]*)""\s*,\s*(.+?)\)\s*\)", "WriteFileTool"),
+            (@"SearchAndReplaceTool\s*\(\s*""([^""]*)""\s*,\s*""([^""]*)""\s*,\s*""([^""]*)""\s*\)", "SearchAndReplaceTool"),
+            (@"FileGitDiffTool\s*\(\s*""([^""]*)""\s*\)", "FileGitDiffTool"),
             
-            if (lines.Length > 0)
-            {
-                // Find line numbers for the diff context to highlight
-                int startLine = 1;
-                int endLine = lines.Length;
-                
-                if (file.Changes.Count > 0)
-                {
-                    try
-                    {
-                        // Try to extract line ranges from diff header like @@ -10,5 +12,7 @@
-                        var diffHeaderPattern = new System.Text.RegularExpressions.Regex(@"@@ \-(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", 
-                            System.Text.RegularExpressions.RegexOptions.Multiline);
-                        
-                        var match = diffHeaderPattern.Match(string.Join("\n", file.Changes));
-                        if (match.Success)
-                        {
-                            startLine = int.Parse(match.Groups[2].Value); // New file line number
-                            endLine = Math.Min(startLine + 10, lines.Length); // Show context around changes
-                        }
-                    }
-                    catch { /* Ignore parsing errors */ }
-                }
-                
-                // Show relevant context from the file
-                sb.AppendLine("```csharp");
-                for (int i = Math.Max(0, startLine - 3); i < Math.Min(lines.Length, endLine + 3); i++)
-                {
-                    // Add line numbers
-                    var lineNumber = i + 1;
-                    sb.AppendLine($"{lineNumber:D4}: {lines[i]}");
-                }
-                sb.AppendLine("```");
-            }
-        }
-        
-        // Review request
-        sb.AppendLine();
-        sb.AppendLine("=== REVIEW REQUEST ===");
-        sb.AppendLine("Please provide a detailed code review of this file based on the rules provided above.");
-        sb.AppendLine("Focus on:");
-        sb.AppendLine("- Code quality and best practices");
-        sb.AppendLine("- Potential security issues");
-        sb.AppendLine("- Performance considerations");
-        sb.AppendLine("- Error handling");
-        sb.AppendLine("- Maintainability");
-        sb.AppendLine();
-        sb.AppendLine("Format your response as follows (JSON):");
-        sb.AppendLine(@"{");
-        sb.AppendLine("  \"comments\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"line\": <line_number>,");
-        sb.AppendLine("      \"severity\": \"Info|Warning|Error|Critical\",");
-        sb.AppendLine("      \"message\": \"<specific description of the issue>\",");
-        sb.AppendLine("      \"suggestion\": \"<how to improve or fix>\"");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ]");
-        sb.AppendLine("}");
-        sb.AppendLine();
-        
-        // Add system note about the review scope
-        sb.AppendLine("=== SYSTEM NOTE ===");
-        sb.AppendLine("Review only the shown code context and highlighted changes.");
-        sb.AppendLine("Be constructive with your feedback - suggest specific improvements when issues are found.");
-        sb.AppendLine("Focus on high-impact issues first (Critical > Error > Warning > Info).");
-        
-        return sb.ToString();
-    }
-    
-    private int FindMatchingClosingBrace(ReadOnlySpan<char> span, int openIndex)
-    {
-        if (openIndex < 0 || openIndex >= span.Length || span[openIndex] != '{')
-            throw new ArgumentException("Invalid opening brace position");
+            (@"<ReadFileTreeTool[^>]*>[\s\n]*<Directory>([^<]*)</Directory>", "ReadFileTreeTool"),
+            (@"<ReadFileTreeTool[^>]*>[\s\n]*<Path>([^<]*)</Path>", "ReadFileTreeTool"),
+            (@"<ReadFileTreeTool[^>]*directory[^>]*=""([^""]*)""", "ReadFileTreeTool"),
+            (@"<ReadFileTool[^>]*>[\s\n]*<File>([^<]*)</File>", "ReadFileTool"),
+            (@"<ReadFileTool[^>]*>[\s\n]*<FilePath>([^<]*)</FilePath>", "ReadFileTool"),
+            (@"<ReadFileTool[^>]*file[^>]*=""([^""]*)""", "ReadFileTool"),
+            (@"<WriteFileTool[^>]*file[^>]*=""([^""]*)""", "WriteFileTool"),
+            (@"<FileGitDiffTool[^>]*file[^>]*=""([^""]*)""", "FileGitDiffTool"),
             
-        var depth = 1;
-        
-        for (int i = openIndex + 1; i < span.Length; i++)
-        {
-            switch (span[i])
-            {
-                case '{':
-                    depth++;
-                    break;
-                    
-                case '}':
-                    depth--;
-                    if (depth == 0)
-                        return i;
-                    break;
-            }
-        }
-        
-        return -1; // No matching brace found
-    }
-    
-    private int CalculateOverallScore(ReviewComment[] comments)
-    {
-        if (comments.Length == 0)
-            return 100; // Perfect score for no issues
-            
-        var severityWeights = new Dictionary<string, double>
-        {
-            ["Critical"] = 10.0,
-            ["Error"] = 5.0,
-            ["Warning"] = 2.0,
-            ["Info"] = 1.0
+            (@"<tool_call>\s*(\w+)\s*\(\s*""([^""]*)""\s*\)", "ReadFileTool"),
         };
-        
-        double totalPenalty = 0;
-        
-        foreach (var comment in comments)
+
+        foreach (var (pattern, defaultTool) in patterns)
         {
-            if (severityWeights.TryGetValue(comment.Severity, out var weight))
-                totalPenalty += weight;
+            var matches = System.Text.RegularExpressions.Regex.Matches(content, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            foreach (System.Text.RegularExpressions.Match match in matches)
+            {
+                var toolName = defaultTool;
+                if (match.Groups.Count > 2)
+                {
+                    var possibleName = match.Groups[1].Value;
+                    if (possibleName.EndsWith("Tool"))
+                        toolName = possibleName;
+                }
                 
-            // Each issue is at least a penalty of 1
-            totalPenalty = Math.Max(totalPenalty, comments.Length);
+                var args = match.Groups.Cast<System.Text.RegularExpressions.Group>().Skip(1).Select(g => g.Value.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToArray();
+                
+                args = args.Select(a => {
+                    var cleaned = a.Replace("CodeReviewAgent/", "").Replace("CodeReviewAgent\\", "");
+                    while (cleaned.StartsWith("/") || cleaned.StartsWith("\\"))
+                        cleaned = cleaned.Substring(1);
+                    return cleaned;
+                }).ToArray();
+                
+                toolCalls.Add((toolName, args));
+            }
         }
-        
-        // Base score of 100, minus normalized penalties
-        var maxPossibleScore = 100.0;
-        var minPossibleScore = 20.0; // Even with many issues, don't go to zero
-        
-        var score = maxPossibleScore - Math.Min(totalPenalty * 2, maxPossibleScore - minPossibleScore);
-        
-        return (int)Math.Max(minPossibleScore, Math.Round(score));
+
+        return toolCalls;
     }
+
+    private async Task<string> ExecuteToolAsync(string toolName, string[] args)
+    {
+        return toolName switch
+        {
+            "ReadFileTreeTool" => string.Join("\n", await ((IReadFileTreeTool)_toolFactory.CreateTool("ReadFileTreeTool")).RunToolAsync(args)),
+            "ReadFileTool" => await ((IReadFileTool)_toolFactory.CreateTool("ReadFileTool")).RunToolAsync(args),
+            "WriteFileTool" => ((IWriteFileTool)_toolFactory.CreateTool("WriteFileTool")).RunToolAsync(args).Result ? "File written successfully" : "Failed to write file",
+            "SearchAndReplaceTool" => ((ISearchAndReplaceTool)_toolFactory.CreateTool("SearchAndReplaceTool")).RunToolAsync(args).Result ? "Replacements made" : "No replacements made",
+            "FileGitDiffTool" => await ((IFileGitDiffTool)_toolFactory.CreateTool("FileGitDiffTool")).RunToolAsync(args),
+            _ => $"Unknown tool: {toolName}"
+        };
+    }
+
+    private List<AIFunction> CreateAIFunctions()
+    {
+        var functions = new List<AIFunction>();
+
+        var readFileTreeTool = (IReadFileTreeTool)_toolFactory.CreateTool("ReadFileTreeTool");
+        functions.Add(AIFunctionFactory.Create(
+            new ReadFileTreeDelegate(path => readFileTreeTool.RunToolAsync(path)),
+            "ReadFileTreeTool"));
+
+        var readFileTool = (IReadFileTool)_toolFactory.CreateTool("ReadFileTool");
+        functions.Add(AIFunctionFactory.Create(
+            new ReadFileDelegate(path => readFileTool.RunToolAsync(path)),
+            "ReadFileTool"));
+
+        var writeFileTool = (IWriteFileTool)_toolFactory.CreateTool("WriteFileTool");
+        functions.Add(AIFunctionFactory.Create(
+            new WriteFileDelegate((file, content) => writeFileTool.RunToolAsync(file, content)),
+            "WriteFileTool"));
+
+        var searchAndReplaceTool = (ISearchAndReplaceTool)_toolFactory.CreateTool("SearchAndReplaceTool");
+        functions.Add(AIFunctionFactory.Create(
+            new SearchAndReplaceDelegate((file, search, replace) => searchAndReplaceTool.RunToolAsync(file, search, replace)),
+            "SearchAndReplaceTool"));
+
+        var fileGitDiffTool = (IFileGitDiffTool)_toolFactory.CreateTool("FileGitDiffTool");
+        functions.Add(AIFunctionFactory.Create(
+            new FileGitDiffDelegate(path => fileGitDiffTool.RunToolAsync(path)),
+            "FileGitDiffTool"));
+
+        return functions;
+    }
+
+    private delegate Task<List<string>> ReadFileTreeDelegate(string path);
+    private delegate Task<string> ReadFileDelegate(string path);
+    private delegate Task<bool> WriteFileDelegate(string file, string content);
+    private delegate Task<bool> SearchAndReplaceDelegate(string file, string searchPattern, string replacement);
+    private delegate Task<string> FileGitDiffDelegate(string path);
 }

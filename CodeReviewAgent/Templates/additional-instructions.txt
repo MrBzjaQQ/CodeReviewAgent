@@ -1,0 +1,7 @@
+Write your code review findings to the result file using WriteFileTool.
+
+Your review should include:
+- Summary of changes
+- Potential issues found
+- Recommendations for improvement
+- Code quality observations

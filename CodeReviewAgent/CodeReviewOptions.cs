@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-
-namespace ReviewAgent;
+namespace CodeReviewAgent;
 
 public class CodeReviewOptions
 {

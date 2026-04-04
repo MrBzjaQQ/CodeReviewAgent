@@ -1,26 +1,23 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+using CodeReviewAgent.Clients;
+using CodeReviewAgent.Context;
+using CodeReviewAgent.Factories;
+using CodeReviewAgent.Services;
+using CodeReviewAgent.Utils;
 using Microsoft.Extensions.AI;
-using ReviewAgent.Services;
 
-namespace ReviewAgent;
+namespace CodeReviewAgent;
 
 public class Program
 {
     private static async Task Main(string[] args)
     {
         Console.WriteLine("=== Code Review Agent ===");
-        
+
         try
         {
             // Parse command line arguments
             var options = ParseCommandLineArguments(args);
-            
+
             if (options == null)
             {
                 PrintUsage();
@@ -31,7 +28,7 @@ public class Program
             options.Validate();
 
             // Initialize services
-            var ignorePatterns = new ReviewAgent.Utils.IgnorePatternMatcher();
+            var ignorePatterns = new IgnorePatternMatcher();
             LoadIgnoreFile(options, ignorePatterns);
 
             Console.WriteLine($"Repository: {options.Directory}");
@@ -39,34 +36,28 @@ public class Program
                 Console.WriteLine($"Start Commit: {options.StartCommit}");
             if (!string.IsNullOrEmpty(options.EndCommit))
                 Console.WriteLine($"End Commit: {options.EndCommit}");
-            
-            var gitDiffService = new ReviewAgent.Services.GitDiffService(options.Directory);
-            var fileAnalysisService = new ReviewAgent.Services.FileAnalysisService(options.Directory);
-            var llmClient = CreateLlmClient(options);
 
-            // Load review rules
-            string reviewRules;
-            if (!string.IsNullOrEmpty(options.ReviewRulesTemplatePath))
-            {
-                try
-                {
-                    reviewRules = File.ReadAllText(options.ReviewRulesTemplatePath);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Warning: Could not read custom review rules at {options.ReviewRulesTemplatePath}: {ex.Message}");
-                    reviewRules = LoadDefaultReviewRules();
-                }
-            }
-            else
-            {
-                reviewRules = LoadDefaultReviewRules();
-            }
+            // Create tool factory
+            var toolFactory = new ToolFactory(ignorePatterns);
+
+            // Create prompt service (loads templates from Templates folder)
+            var templatesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates");
+            var promptService = new PromptService(templatesPath);
+
+            // Create context service
+            var contextService = new ContextService(
+                toolFactory,
+                options.Directory,
+                promptService);
+
+            // Create LLM client
+            var chatClient = CreateLlmClient(options);
 
             // Get changed files from git diff
             Console.WriteLine("Getting changed files from git repository...");
+            var gitDiffService = new GitDiffService(options.Directory);
             var changedFiles = await gitDiffService.GetChangedFilesAsync(options.StartCommit, options.EndCommit, ignorePatterns);
-            
+
             if (changedFiles.Count == 0)
             {
                 Console.WriteLine("No changed files found to review.");
@@ -77,32 +68,25 @@ public class Program
 
             // Perform code reviews
             Console.WriteLine("\nPerforming code reviews...");
-            var codeReviewService = new ReviewAgent.Services.CodeReviewService(llmClient, fileAnalysisService, ignorePatterns, options);
-            
-            // Fix the missing ParseReviewResponseAsync method by implementing it
-            var resultsList = changedFiles.Select(f => new ReviewAgent.Services.GitDiffResult 
-            {
-                FilePath = f.FilePath,
-                Changes = f.Changes,
-                FullContent = f.FullContent,
-                DiffContent = f.DiffContent
-            }).ToList();
-            
-            var reviewResults = await codeReviewService.ReviewFilesAsync(resultsList, reviewRules);
+            var codeReviewService = new CodeReviewService(
+                chatClient,
+                contextService,
+                toolFactory,
+                ignorePatterns,
+                options.StartCommit,
+                options.EndCommit,
+                options.Directory);
 
-            // Generate HTML output
-            Console.WriteLine("\nGenerating HTML report...");
-            await GenerateHtmlReport(reviewResults, options);
-            
+            await codeReviewService.PerformCodeReviewAsync(changedFiles.Select(f => f.FilePath).ToList());
+
             Console.WriteLine($"\nCode review completed successfully!");
-            Console.WriteLine($"Report generated: {options.OutputHtmlFile}");
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
             if (ex.InnerException != null)
                 Console.Error.WriteLine($"Inner Error: {ex.InnerException.Message}");
-            
+
             Environment.Exit(1);
         }
     }
@@ -118,7 +102,7 @@ public class Program
             {
                 case "-d":
                 case "--directory":
-                    if (i + 1 >= args.Length) 
+                    if (i + 1 >= args.Length)
                         Console.WriteLine("Error: Directory path is required after -d/--directory");
                     else
                     {
@@ -203,7 +187,7 @@ public class Program
                 case "--help":
                     PrintUsage();
                     return null;
-                
+
                 case "-c":
                 case "--client":
                     if (i + 1 >= args.Length)
@@ -253,21 +237,21 @@ REQUIRED ARGUMENTS:
 OPTIONS:
   -s, --start-commit HASH  Starting commit hash for comparison (optional)
   -e, --end-commit HASH    Ending commit hash for comparison (optional)
-  
+
 OUTPUT OPTIONS:
   -o, --output FILE        Output HTML file path (default: index.html)
-  
+
 CONFIGURATION OPTIONS:
   --ignore-file PATH       Path to .reviewignore file (default: ./.reviewignore)
   --rules-file PATH        Path to custom review rules template
   --url URL                LLM server base URL (default: http://localhost:1234)
   --model NAME             Model name for reviews (default: gemma-3-4b-it)
-  
+
 REVIEW OPTIONS:
   --temperature FLOAT      Response creativity temperature (0.0-1.0, default: 0.7)
   --max-size BYTES         Maximum file size to process (default: 1048576 bytes)
   --no-diff                Don't include git diff in output
-  
+
 GENERAL OPTIONS:
   -h, --help               Show this help message
 
@@ -284,22 +268,22 @@ EXAMPLES:
 ");
     }
 
-    private static void LoadIgnoreFile(CodeReviewOptions options, ReviewAgent.Utils.IgnorePatternMatcher ignorePatterns)
+    private static void LoadIgnoreFile(CodeReviewOptions options, IgnorePatternMatcher ignorePatterns)
     {
         string ignoreFilePath;
-        
+
         if (!string.IsNullOrEmpty(options.IgnoreFilePath))
         {
             // Use specified path or relative to current directory
-            ignoreFilePath = Path.IsPathRooted(options.IgnoreFilePath) 
-                ? options.IgnoreFilePath 
+            ignoreFilePath = Path.IsPathRooted(options.IgnoreFilePath)
+                ? options.IgnoreFilePath
                 : Path.Combine(Environment.CurrentDirectory, options.IgnoreFilePath);
         }
         else
         {
             // Look for .reviewignore in the repository directory
             var repoIgnoreFile = Path.GetFullPath(Path.Combine(options.Directory!, ".reviewignore"));
-            
+
             if (File.Exists(repoIgnoreFile))
             {
                 ignoreFilePath = repoIgnoreFile;
@@ -331,7 +315,7 @@ EXAMPLES:
         var assembly = System.Reflection.Assembly.GetExecutingAssembly();
         try
         {
-            using (var stream = assembly.GetManifestResourceStream("ReviewAgent.src.Templates.default-review-rules.txt"))
+            using (var stream = assembly.GetManifestResourceStream("CodeReviewAgent.Templates.default-review-rules.txt"))
             {
                 if (stream != null)
                 {
@@ -345,8 +329,8 @@ EXAMPLES:
         catch { /* Ignore errors accessing embedded resource */ }
 
         // Fallback: try to read from file system
-        var rulesFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "src", "Templates", "default-review-rules.txt");
-        
+        var rulesFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "default-review-rules.txt");
+
         if (File.Exists(rulesFile))
         {
             try
@@ -383,61 +367,6 @@ EXAMPLES:
 === END RULES ===";
     }
 
-    private static async Task GenerateHtmlReport(FileReviewResult[] reviewResults, CodeReviewOptions options)
-    {
-        // Load HTML template
-        string htmlTemplate;
-        try
-        {
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            
-            using (var stream = assembly.GetManifestResourceStream("CodeReviewAgent.Templates.default-comment-template.html"))
-            {
-                if (stream != null)
-                {
-                    using (var reader = new StreamReader(stream))
-                    {
-                        htmlTemplate = reader.ReadToEnd();
-                    }
-                }
-                else
-                {
-                    throw new FileNotFoundException("Embedded HTML template not found");
-                }
-            }
-        }
-        catch
-        {
-            // Fallback: read from file system
-            var templateFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "src", "Templates", "default-comment-template.html");
-            
-            if (File.Exists(templateFile))
-            {
-                htmlTemplate = await File.ReadAllTextAsync(templateFile);
-            }
-            else
-            {
-                throw new FileNotFoundException("Could not find HTML template file");
-            }
-        }
-
-        // Prepare configuration data for the HTML template
-        var configJson = JsonSerializer.Serialize(new
-        {
-            repositoryPath = options.Directory,
-            modelName = options.ModelName,
-            showDiff = options.IncludeDiff,
-            showFullContent = false, // Could be made configurable later
-            files = reviewResults
-        });
-
-        // Insert configuration data into the HTML template
-        var finalHtml = htmlTemplate.Replace("// <INSERT CONFIG HERE>", $"const config = {configJson};");
-
-        // Write to output file
-        await File.WriteAllTextAsync(options.OutputHtmlFile, finalHtml);
-    }
-
     private static IChatClient CreateLlmClient(CodeReviewOptions options)
     {
         // Create the appropriate client based on the specified client type
@@ -445,13 +374,13 @@ EXAMPLES:
         {
             case "lmstudio":
             case "lmstudioclient":
-                return new ReviewAgent.Clients.LmStudioClient(
+                return new LmStudioClient(
                     baseUrl: options.BaseUrl,
                     httpClient: null
                 );
             case "openai":
             case "openaicompatibleclient":
-                return new ReviewAgent.Clients.OpenAICompatibleClient(
+                return new OpenAICompatibleClient(
                     baseUrl: options.BaseUrl,
                     model: options.ModelName,
                     httpClient: null
@@ -459,7 +388,7 @@ EXAMPLES:
             default:
                 // Default to LmStudioClient if invalid client type specified
                 Console.WriteLine($"Warning: Unknown client type '{options.ClientType}', defaulting to LmStudioClient");
-                return new ReviewAgent.Clients.LmStudioClient(
+                return new LmStudioClient(
                     baseUrl: options.BaseUrl,
                     httpClient: null
                 );

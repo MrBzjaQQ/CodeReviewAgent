@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 
-namespace ReviewAgent.Clients;
+namespace CodeReviewAgent.Clients;
 
 public class OpenAICompatibleClient : IChatClient
 {

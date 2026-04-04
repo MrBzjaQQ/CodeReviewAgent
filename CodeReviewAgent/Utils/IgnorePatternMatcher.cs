@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text.RegularExpressions;
 
-namespace ReviewAgent.Utils;
+namespace CodeReviewAgent.Utils;
 
 public class IgnorePatternMatcher
 {
